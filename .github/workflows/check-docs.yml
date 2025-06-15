@@ -3,10 +3,11 @@ name: check-docs
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/15 * * * *'  # Every 15 minutes
 
 env:
   F1_DOCS_WEBHOOK: ${{ secrets.F1_DOCS_WEBHOOK }}
+  GECKO_DRIVER_LOG: geckodriver.log
 
 jobs:
   run:
@@ -21,31 +22,28 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies
-        run: pip install requests beautifulsoup4 selenium
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 selenium
 
-      - name: Install Firefox and Geckodriver manually
+      - name: Install Firefox manually
         run: |
           sudo apt-get update
-          sudo apt-get install -y firefox libdbus-glib-1-2
-          
-          GECKODRIVER_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-          wget -O geckodriver.tar.gz "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VERSION}/geckodriver-v${GECKODRIVER_VERSION}-linux64.tar.gz"
+          sudo apt-get install -y firefox
+          GECKO_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          wget -O geckodriver.tar.gz "https://github.com/mozilla/geckodriver/releases/download/v${GECKO_VERSION}/geckodriver-v${GECKO_VERSION}-linux64.tar.gz"
           tar -xzf geckodriver.tar.gz
           chmod +x geckodriver
           sudo mv geckodriver /usr/local/bin/
 
-      - name: Run script
+      - name: Run FIA notifier script
         env:
           MOZ_HEADLESS: 1
-          GECKO_DRIVER_LOG: geckodriver.log
         run: |
-          echo "🦊 Launching Firefox headless..."
-          python fia_docs_to_discord.py || true
-          echo "--- Geckodriver Log ---"
-          cat geckodriver.log || echo "No geckodriver.log found"
+          echo "🦊 Running FIA script..."
+          python fia_docs_to_discord.py
 
-      - name: Upload geckodriver log
+      - name: Upload Geckodriver log (optional)
         if: always()
         uses: actions/upload-artifact@v4
         with:
