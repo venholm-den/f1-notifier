@@ -3,7 +3,7 @@ name: check-docs
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/15 * * * *'  # Every 15 minutes
+    - cron: '*/15 * * * *'
 
 env:
   F1_DOCS_WEBHOOK: ${{ secrets.F1_DOCS_WEBHOOK }}
@@ -22,11 +22,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: |
-          pip install requests beautifulsoup4 selenium
+      - name: Install Python dependencies
+        run: pip install requests beautifulsoup4 selenium
 
-      - name: Install Firefox manually
+      - name: Install Firefox & Geckodriver
         run: |
           sudo apt-get update
           sudo apt-get install -y firefox
@@ -36,14 +35,14 @@ jobs:
           chmod +x geckodriver
           sudo mv geckodriver /usr/local/bin/
 
-      - name: Run FIA notifier script
+      - name: Run notifier script
         env:
           MOZ_HEADLESS: 1
         run: |
-          echo "🦊 Running FIA script..."
+          echo "🦊 Running FIA notifier script..."
           python fia_docs_to_discord.py
 
-      - name: Upload Geckodriver log (optional)
+      - name: Upload Geckodriver log (if exists)
         if: always()
         uses: actions/upload-artifact@v4
         with:
