@@ -93,7 +93,7 @@ def post_to_discord(doc):
     }
     res = requests.post(WEBHOOK_URL, json=payload)
     res.raise_for_status()
-
+    
 def main():
     status = get_race_window_status()
     now = datetime.utcnow()
@@ -103,6 +103,10 @@ def main():
         return
 
     doc = get_latest_fia_doc()
+    if not doc:
+        print("No documents available — exiting.")
+        return
+
     doc_hash = compute_doc_hash(doc)
     last_hash = load_last_hash()
 
