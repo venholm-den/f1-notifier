@@ -36,7 +36,6 @@ F1_WEEKENDS = [
 ]
 
 def get_race_window_status():
-    """Return 'race' if it's a race weekend, else 'off'."""
     today = datetime.utcnow().date()
     for start_str, end_str in F1_WEEKENDS:
         start = datetime.strptime(start_str, "%Y-%m-%d").date()
@@ -45,26 +44,35 @@ def get_race_window_status():
             return "race"
     return "off"
 
-def get_latest_fia_doc():
+def get_docs_from_today():
     res = requests.get(FIA_URL)
     res.raise_for_status()
     soup = BeautifulSoup(res.text, "html.parser")
-
     table = soup.select_one("table.views-table")
     if not table:
         print("⚠️ FIA document table not found.")
-        return None
+        return []
 
-    row = table.select_one("tbody tr")
-    if not row:
-        print("⚠️ FIA document table found, but no rows present.")
-        return None
+    rows = table.select("tbody tr")
+    if not rows:
+        print("⚠️ No document rows found.")
+        return []
 
-    cols = row.find_all("td")
-    title = cols[0].text.strip()
-    link = "https://www.fia.com" + cols[0].find("a")["href"]
-    published = cols[-1].text.strip()
-    return {"title": title, "link": link, "published": published}
+    today = datetime.utcnow().strftime("%d.%m.%Y")
+    docs = []
+
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) < 2:
+            continue
+        published = cols[-1].text.strip()
+        if today != published:
+            continue
+        title = cols[0].text.strip()
+        link = "https://www.fia.com" + cols[0].find("a")["href"]
+        docs.append({"title": title, "link": link, "published": published})
+
+    return docs
 
 def compute_doc_hash(doc):
     return hashlib.sha256((doc["title"] + doc["link"]).encode()).hexdigest()
@@ -81,7 +89,7 @@ def save_last_hash(h):
 
 def post_to_discord(doc):
     if not WEBHOOK_URL:
-        raise EnvironmentError("WEBHOOK_URL is not set.")
+        raise EnvironmentError("F1_DOCS_WEBHOOK is not set.")
     payload = {
         "embeds": [{
             "title": doc["title"],
@@ -93,7 +101,7 @@ def post_to_discord(doc):
     }
     res = requests.post(WEBHOOK_URL, json=payload)
     res.raise_for_status()
-    
+
 def main():
     status = get_race_window_status()
     now = datetime.utcnow()
@@ -102,20 +110,27 @@ def main():
         print(f"Not a race weekend and not early morning — skipping ({now.time()})")
         return
 
-    doc = get_latest_fia_doc()
-    if not doc:
-        print("No documents available — exiting.")
+    docs = get_docs_from_today()
+    if not docs:
+        print("No documents from today — exiting.")
         return
 
-    doc_hash = compute_doc_hash(doc)
     last_hash = load_last_hash()
+    new_hashes = []
 
-    if doc_hash != last_hash:
-        print(f"New document found: {doc['title']}")
+    for doc in reversed(docs):  # Oldest to newest
+        doc_hash = compute_doc_hash(doc)
+        new_hashes.append(doc_hash)
+
+        if doc_hash == last_hash:
+            print(f"Skipping already-posted doc: {doc['title']}")
+            continue
+
+        print(f"Posting new document: {doc['title']}")
         post_to_discord(doc)
-        save_last_hash(doc_hash)
-    else:
-        print("No new documents.")
+
+    if new_hashes:
+        save_last_hash(new_hashes[-1])
 
 if __name__ == "__main__":
     main()
