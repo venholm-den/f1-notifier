@@ -1,116 +1,79 @@
 # fia_docs_to_discord.py
 
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta, UTC
 import os
 import time
 import hashlib
 import requests
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
 
-FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071"
-WEBHOOK_URL = os.getenv("F1_DOCS_WEBHOOK")
-LAST_HASH_FILE = "last_fia_doc_hash.txt"
-USE_YESTERDAY = True  # Set to False if you want today's documents
+FIA_DOCS_URL = "https://www.fia.com/documents"
+DISCORD_WEBHOOK_URL = os.getenv("F1_DOCS_WEBHOOK")
+DUMP_HTML = "fia_page_dump.html"
+HASH_FILE = "last_fia_doc_hash.txt"
 
-def get_docs_by_date():
+def get_docs():
+    print("🦊 Launching Firefox headless...")
     options = Options()
     options.headless = True
     driver = webdriver.Firefox(options=options)
+    driver.get(FIA_DOCS_URL)
+    time.sleep(5)
 
-    try:
-        print("🚀 Launching Firefox with Selenium...")
-        driver.get(FIA_DOCS_URL)
-        time.sleep(6)  # Let JS load everything
-        soup = BeautifulSoup(driver.page_source, "html.parser")
+    html = driver.page_source
+    with open(DUMP_HTML, "w", encoding="utf-8") as f:
+        f.write(html)
+    print("✅ Dumped FIA page source.")
 
-        # Save the page source for debugging
-        with open("fia_page_dump.html", "w", encoding="utf-8") as f:
-            f.write(driver.page_source)
-
-        table = soup.find("table", class_="views-table")
-        if not table:
-            print("‼️ Could not find FIA document table.")
-            return []
-
-        target_date = datetime.now(UTC) - timedelta(days=1) if USE_YESTERDAY else datetime.now(UTC)
-        date_str = target_date.strftime("%d.%m.%Y")
-        print(f"🔍 Looking for FIA documents from: {date_str}")
-
-        docs = []
-        for row in table.select("tbody tr"):
-            cols = row.find_all("td")
-            if len(cols) < 2:
-                continue
-
-            published = cols[-1].text.strip()
-            if published != date_str:
-                continue
-
-            title = cols[0].text.strip()
-            link_tag = cols[0].find("a")
-            if not link_tag or not link_tag.get("href"):
-                continue
-
-            link = "https://www.fia.com" + link_tag["href"]
-            docs.append({"title": title, "link": link, "published": published})
-
-        return docs
-
-    finally:
+    soup = BeautifulSoup(html, "html.parser")
+    doc_table = soup.find("table", class_="views-table")
+    if not doc_table:
+        print("‼️ Could not find FIA document table.")
         driver.quit()
+        return []
 
-def compute_doc_hash(doc):
-    return hashlib.sha256((doc["title"] + doc["link"]).encode()).hexdigest()
+    rows = doc_table.find_all("tr")
+    docs = []
+    for row in rows:
+        link = row.find("a", href=True)
+        if link and "Doc" in link.text:
+            title = link.text.strip()
+            href = "https://www.fia.com" + link['href']
+            docs.append({"title": title, "url": href})
+    driver.quit()
+    print(f"📄 Found {len(docs)} Doc entries.")
+    return docs
 
-def load_last_hash():
-    if not os.path.exists(LAST_HASH_FILE):
+def hash_doc(doc):
+    return hashlib.sha256((doc['title'] + doc['url']).encode()).hexdigest()
+
+def read_last_hash():
+    if not os.path.exists(HASH_FILE):
         return None
-    with open(LAST_HASH_FILE, "r") as f:
+    with open(HASH_FILE, "r") as f:
         return f.read().strip()
 
-def save_last_hash(h):
-    with open(LAST_HASH_FILE, "w") as f:
+def write_last_hash(h):
+    with open(HASH_FILE, "w") as f:
         f.write(h)
 
 def post_to_discord(doc):
-    if not WEBHOOK_URL:
-        raise EnvironmentError("F1_DOCS_WEBHOOK is not set.")
-    payload = {
-        "embeds": [{
-            "title": doc["title"],
-            "url": doc["link"],
-            "description": f"📄 Published: {doc['published']}",
-            "color": 0x3498DB,
-            "footer": {"text": "FIA F1 Document Update"}
-        }]
-    }
-    res = requests.post(WEBHOOK_URL, json=payload)
-    res.raise_for_status()
+    content = f"📎 New FIA Document Posted:\n**{doc['title']}**\n{doc['url']}"
+    r = requests.post(DISCORD_WEBHOOK_URL, json={"content": content})
+    print("📤 Posted to Discord:", r.status_code)
 
 def main():
-    docs = get_docs_by_date()
+    docs = get_docs()
     if not docs:
-        print("No documents from that date — exiting.")
         return
-
-    last_hash = load_last_hash()
-    new_hashes = []
-
-    for doc in reversed(docs):
-        doc_hash = compute_doc_hash(doc)
-        new_hashes.append(doc_hash)
-
-        if doc_hash == last_hash:
-            print(f"⏭️ Skipping already-posted doc: {doc['title']}")
-            continue
-
-        print(f"📢 Posting new document: {doc['title']}")
-        post_to_discord(doc)
-
-    if new_hashes:
-        save_last_hash(new_hashes[-1])
+    latest = docs[0]
+    latest_hash = hash_doc(latest)
+    if latest_hash != read_last_hash():
+        post_to_discord(latest)
+        write_last_hash(latest_hash)
+    else:
+        print("⏸ No new document — skipping post.")
 
 if __name__ == "__main__":
     main()
