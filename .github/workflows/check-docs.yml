@@ -2,26 +2,27 @@ name: check-docs
 
 on:
   schedule:
-    - cron: "*/30 * * * *"  # every 30 minutes
+    - cron: "*/15 * * * *"  # Every 15 minutes
   workflow_dispatch:
 
 jobs:
   check-docs:
     runs-on: ubuntu-24.04
+
     env:
       F1_DOCS_WEBHOOK: ${{ secrets.F1_DOCS_WEBHOOK }}
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: '3.11'
 
-      - name: Install Python packages
-        run: pip install -r requirements.txt
+      - name: Install Python dependencies
+        run: pip install requests beautifulsoup4 selenium
 
       - name: Install Firefox and Geckodriver
         run: |
@@ -37,5 +38,5 @@ jobs:
           sudo mv firefox /opt/firefox
           sudo ln -s /opt/firefox/firefox /usr/local/bin/firefox
 
-      - name: Run FIA Docs Script
+      - name: Run notifier script
         run: python fia_docs_to_discord.py
