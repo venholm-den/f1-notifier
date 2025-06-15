@@ -48,13 +48,21 @@ def get_docs_from_today():
     res = requests.get(FIA_URL)
     res.raise_for_status()
     soup = BeautifulSoup(res.text, "html.parser")
+
+    # Try strict match first
     table = soup.find("table", class_="views-table")
+
+    # Fallback: partial class match
     if not table:
-        table = soup.find("table", class_=lambda c: c and "views-table" in c)
-    if not table:
-        print("‼️ Could not find FIA document table, dumping all table tags...")
         for t in soup.find_all("table"):
-            print(t.get("class"))
+            class_list = t.get("class", [])
+            if any("views-table" in c for c in class_list):
+                table = t
+                break
+
+    if not table:
+        print("‼️ Could not find FIA document table after fallback.")
+        return []
 
     rows = table.select("tbody tr")
     if not rows:
