@@ -1,12 +1,10 @@
 import os
 import time
 import hashlib
-import datetime
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.common.by import By
 
 WEBHOOK_URL = os.getenv("F1_DOCS_WEBHOOK")
 FIA_DOCS_URL = "https://www.fia.com/documents/fia-formula-one-world-championship/2025"
@@ -16,7 +14,7 @@ def get_saved_hashes():
     if not os.path.exists(HASH_FILE):
         return set()
     with open(HASH_FILE, "r") as f:
-        return set(line.strip() for line in f.readlines())
+        return set(line.strip() for line in f)
 
 def save_hashes(hashes):
     with open(HASH_FILE, "w") as f:
@@ -27,65 +25,60 @@ def hash_text(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
 def find_latest_docs():
-    print("🚀 Launching Firefox with Selenium...")
     options = Options()
     options.headless = True
     driver = webdriver.Firefox(options=options)
 
     try:
-        print(f"🌍 Loading: {FIA_DOCS_URL}")
         driver.get(FIA_DOCS_URL)
-        time.sleep(5)  # Wait for JS to load
+        time.sleep(5)  # Wait for page to fully load
 
         soup = BeautifulSoup(driver.page_source, "html.parser")
         driver.quit()
 
         all_sections = soup.select("div.view-fia-documents div.view-group")
         if not all_sections:
-            print("❌ No document sections found.")
+            print("❌ No GP document sections found.")
             return []
 
-        # Always use the first GP section
+        # Only use first (most recent) section
         first_section = all_sections[0]
         docs = []
 
         for row in first_section.select("div.views-row"):
-            link_tag = row.find("a", href=True)
-            if not link_tag or "Doc" not in link_tag.text:
-                continue
-            doc_title = link_tag.text.strip()
-            doc_url = "https://www.fia.com" + link_tag["href"]
+            link = row.find("a", href=True)
+            if link and "Doc" in link.text:
+                title = link.text.strip()
+                url = "https://www.fia.com" + link["href"]
+                docs.append((title, url))
 
-            docs.append((doc_title, doc_url))
-
-        print(f"✅ Found {len(docs)} documents.")
         return docs
 
     except Exception as e:
-        print(f"🔥 Error: {e}")
         driver.quit()
+        print(f"🔥 Error during scraping: {e}")
         return []
 
 def post_to_discord(title, url):
     content = f"📄 **{title}**\n🔗 {url}"
-    response = requests.post(WEBHOOK_URL, json={"content": content})
-    if response.status_code == 204:
+    r = requests.post(WEBHOOK_URL, json={"content": content})
+    if r.status_code == 204:
         print(f"✅ Posted: {title}")
     else:
-        print(f"⚠️ Failed to post: {title}, HTTP {response.status_code}")
+        print(f"❌ Failed to post {title}, HTTP {r.status_code}")
 
 def main():
     posted_hashes = get_saved_hashes()
-    docs = find_latest_docs()
-
     new_hashes = set(posted_hashes)
+
+    docs = find_latest_docs()
     for title, url in docs:
-        h = hash_text(title)
-        if h not in posted_hashes:
+        doc_hash = hash_text(title)
+        if doc_hash not in posted_hashes:
             post_to_discord(title, url)
-            new_hashes.add(h)
+            new_hashes.add(doc_hash)
         else:
-            print(f"🕵️ Already posted: {title}")
+            print(f"⏭️ Skipped already posted: {title}")
 
     save_hashes(new_hashes)
 
