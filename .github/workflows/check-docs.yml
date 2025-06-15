@@ -1,16 +1,16 @@
 name: check-docs
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"  # Every 15 minutes
   workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+env:
+  F1_DOCS_WEBHOOK: ${{ secrets.F1_DOCS_WEBHOOK }}
 
 jobs:
-  check-docs:
+  run:
     runs-on: ubuntu-24.04
-
-    env:
-      F1_DOCS_WEBHOOK: ${{ secrets.F1_DOCS_WEBHOOK }}
 
     steps:
       - name: Checkout repository
@@ -24,19 +24,24 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests beautifulsoup4 selenium
 
-      - name: Install Firefox and Geckodriver
+      - name: Install Firefox and Geckodriver dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget bzip2
-          FIREFOX_VER=127.0
-          GECKODRIVER_VER=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
-          wget -q https://github.com/mozilla/geckodriver/releases/download/v$GECKODRIVER_VER/geckodriver-v$GECKODRIVER_VER-linux64.tar.gz
-          tar -xzf geckodriver-v$GECKODRIVER_VER-linux64.tar.gz
-          sudo mv geckodriver /usr/local/bin/
-          wget -q https://ftp.mozilla.org/pub/firefox/releases/$FIREFOX_VER/linux-x86_64/en-US/firefox-$FIREFOX_VER.tar.bz2
-          tar -xf firefox-$FIREFOX_VER.tar.bz2
-          sudo mv firefox /opt/firefox
-          sudo ln -s /opt/firefox/firefox /usr/local/bin/firefox
+          sudo apt-get install -y firefox geckodriver libdbus-glib-1-2
 
-      - name: Run notifier script
-        run: python fia_docs_to_discord.py
+      - name: Run script
+        env:
+          MOZ_HEADLESS: 1
+          GECKO_DRIVER_LOG: geckodriver.log
+        run: |
+          echo "🦊 Launching Firefox headless..."
+          python fia_docs_to_discord.py || true
+          echo "--- Geckodriver Log ---"
+          cat geckodriver.log || echo "No geckodriver.log found"
+
+      - name: Upload geckodriver log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: geckodriver-log
+          path: geckodriver.log
