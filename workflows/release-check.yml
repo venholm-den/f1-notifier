@@ -1,13 +1,13 @@
-name: Check GitHub Releases
+name: Check FIA F1 Documents
 
 on:
   schedule:
-    - cron: "0 */6 * * *"        # Every 6 hours
-    - cron: "0 6 * * *"          # Daily at 6 AM UTC
+    - cron: "0 6 * * *"        # Once daily at 6 AM UTC (non-race days)
+    - cron: "*/15 * * * *"     # Every 15 minutes (race days)
   workflow_dispatch:
 
 jobs:
-  check-release:
+  check-docs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -18,18 +18,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip
-          restore-keys: |
-            ${{ runner.os }}-pip
-
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests beautifulsoup4
 
-      - name: Run release checker
+      - name: Run checker script
         env:
-          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
-        run: python f1_release_to_discord.py
+          F1_DOCS_WEBHOOK: ${{ secrets.F1_DOCS_WEBHOOK }}
+        run: python fia_docs_to_discord.py
