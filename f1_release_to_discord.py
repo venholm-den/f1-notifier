@@ -1,8 +1,8 @@
 import requests
 import os
 
-REPO = "fia-org/f1-docs"  # Replace with your actual repo
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+REPO = "f1-docs"  # Replace with your actual repo
+WEBHOOK_URL = os.getenv("https://discord.com/api/webhooks/1383912089105465516/PE98sISyETf44L54uYciGfoSJEJA5g803xbonpGbXag8ARIsZ1r4I1sSwq_KayQwqCoM")
 LAST_RELEASE_FILE = "last_release.txt"
 
 def get_latest_release(repo):
