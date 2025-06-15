@@ -49,9 +49,17 @@ def get_latest_fia_doc():
     res = requests.get(FIA_URL)
     res.raise_for_status()
     soup = BeautifulSoup(res.text, "html.parser")
-    row = soup.select_one("table.views-table tbody tr")
+
+    table = soup.select_one("table.views-table")
+    if not table:
+        print("⚠️ FIA document table not found.")
+        return None
+
+    row = table.select_one("tbody tr")
     if not row:
-        raise RuntimeError("No FIA document rows found.")
+        print("⚠️ FIA document table found, but no rows present.")
+        return None
+
     cols = row.find_all("td")
     title = cols[0].text.strip()
     link = "https://www.fia.com" + cols[0].find("a")["href"]
