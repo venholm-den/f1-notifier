@@ -1,89 +1,65 @@
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
-import os
-import hashlib
+# fia_docs_to_discord.py
 
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+from bs4 import BeautifulSoup
+from datetime import datetime, timedelta, UTC
+import os
+import time
+import hashlib
+import requests
+
+FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071"
 WEBHOOK_URL = os.getenv("F1_DOCS_WEBHOOK")
 LAST_HASH_FILE = "last_fia_doc_hash.txt"
-FIA_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071"
+USE_YESTERDAY = True  # Set to False if you want today's documents
 
-F1_WEEKENDS = [
-    ("2025-03-14", "2025-03-16"),
-    ("2025-03-21", "2025-03-23"),
-    ("2025-04-04", "2025-04-06"),
-    ("2025-04-11", "2025-04-13"),
-    ("2025-04-18", "2025-04-20"),
-    ("2025-05-02", "2025-05-04"),
-    ("2025-05-16", "2025-05-18"),
-    ("2025-05-23", "2025-05-25"),
-    ("2025-05-30", "2025-06-01"),
-    ("2025-06-13", "2025-06-15"),
-    ("2025-06-27", "2025-06-29"),
-    ("2025-07-04", "2025-07-06"),
-    ("2025-07-25", "2025-07-27"),
-    ("2025-08-01", "2025-08-03"),
-    ("2025-08-29", "2025-08-31"),
-    ("2025-09-05", "2025-09-07"),
-    ("2025-09-19", "2025-09-21"),
-    ("2025-10-03", "2025-10-05"),
-    ("2025-10-17", "2025-10-19"),
-    ("2025-10-24", "2025-10-26"),
-    ("2025-11-07", "2025-11-09"),
-    ("2025-11-21", "2025-11-23"),
-    ("2025-11-28", "2025-11-30"),
-    ("2025-12-05", "2025-12-07"),
-]
+def get_docs_by_date():
+    options = Options()
+    options.headless = True
+    driver = webdriver.Firefox(options=options)
 
-def get_race_window_status():
-    today = datetime.utcnow().date()
-    for start_str, end_str in F1_WEEKENDS:
-        start = datetime.strptime(start_str, "%Y-%m-%d").date()
-        end = datetime.strptime(end_str, "%Y-%m-%d").date()
-        if start <= today <= end:
-            return "race"
-    return "off"
+    try:
+        print("🚀 Launching Firefox with Selenium...")
+        driver.get(FIA_DOCS_URL)
+        time.sleep(6)  # Let JS load everything
+        soup = BeautifulSoup(driver.page_source, "html.parser")
 
-def get_docs_from_today():
-    res = requests.get(FIA_URL)
-    res.raise_for_status()
-    soup = BeautifulSoup(res.text, "html.parser")
+        # Save the page source for debugging
+        with open("fia_page_dump.html", "w", encoding="utf-8") as f:
+            f.write(driver.page_source)
 
-    # Try strict match first
-    table = soup.find("table", class_="views-table")
+        table = soup.find("table", class_="views-table")
+        if not table:
+            print("‼️ Could not find FIA document table.")
+            return []
 
-    # Fallback: partial class match
-    if not table:
-        for t in soup.find_all("table"):
-            class_list = t.get("class", [])
-            if any("views-table" in c for c in class_list):
-                table = t
-                break
+        target_date = datetime.now(UTC) - timedelta(days=1) if USE_YESTERDAY else datetime.now(UTC)
+        date_str = target_date.strftime("%d.%m.%Y")
+        print(f"🔍 Looking for FIA documents from: {date_str}")
 
-    if not table:
-        print("‼️ Could not find FIA document table after fallback.")
-        return []
+        docs = []
+        for row in table.select("tbody tr"):
+            cols = row.find_all("td")
+            if len(cols) < 2:
+                continue
 
-    rows = table.select("tbody tr")
-    if not rows:
-        print("⚠️ No document rows found.")
-        return []
+            published = cols[-1].text.strip()
+            if published != date_str:
+                continue
 
-    today = datetime.utcnow().strftime("%d.%m.%Y")
-    docs = []
+            title = cols[0].text.strip()
+            link_tag = cols[0].find("a")
+            if not link_tag or not link_tag.get("href"):
+                continue
 
-    for row in rows:
-        cols = row.find_all("td")
-        if len(cols) < 2:
-            continue
-        published = cols[-1].text.strip()
-        if today != published:
-            continue
-        title = cols[0].text.strip()
-        link = "https://www.fia.com" + cols[0].find("a")["href"]
-        docs.append({"title": title, "link": link, "published": published})
+            link = "https://www.fia.com" + link_tag["href"]
+            docs.append({"title": title, "link": link, "published": published})
 
-    return docs
+        return docs
+
+    finally:
+        driver.quit()
 
 def compute_doc_hash(doc):
     return hashlib.sha256((doc["title"] + doc["link"]).encode()).hexdigest()
@@ -114,30 +90,23 @@ def post_to_discord(doc):
     res.raise_for_status()
 
 def main():
-    status = get_race_window_status()
-    now = datetime.utcnow()
-
-    if status == "off" and not (now.hour == 6 and now.minute < 15):
-        print(f"Not a race weekend and not early morning — skipping ({now.time()})")
-        return
-
-    docs = get_docs_from_today()
+    docs = get_docs_by_date()
     if not docs:
-        print("No documents from today — exiting.")
+        print("No documents from that date — exiting.")
         return
 
     last_hash = load_last_hash()
     new_hashes = []
 
-    for doc in reversed(docs):  # Oldest to newest
+    for doc in reversed(docs):
         doc_hash = compute_doc_hash(doc)
         new_hashes.append(doc_hash)
 
         if doc_hash == last_hash:
-            print(f"Skipping already-posted doc: {doc['title']}")
+            print(f"⏭️ Skipping already-posted doc: {doc['title']}")
             continue
 
-        print(f"Posting new document: {doc['title']}")
+        print(f"📢 Posting new document: {doc['title']}")
         post_to_discord(doc)
 
     if new_hashes:
