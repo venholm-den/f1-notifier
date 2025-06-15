@@ -1,27 +1,31 @@
-name: Check FIA F1 Documents
+name: FIA Docs Check
 
 on:
   schedule:
-    - cron: "0 6 * * *"        # Once daily at 6 AM UTC (non-race days)
-    - cron: "*/15 * * * *"     # Every 15 minutes (race days)
+    - cron: "*/15 * * * *"  # every 15 minutes, adjust as needed
   workflow_dispatch:
 
 jobs:
   check-docs:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4
+        run: pip install requests beautifulsoup4 selenium
 
-      - name: Run checker script
+      - name: Install Geckodriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y firefox-geckodriver
+
+      - name: Run FIA document checker
         env:
           F1_DOCS_WEBHOOK: ${{ secrets.F1_DOCS_WEBHOOK }}
         run: python fia_docs_to_discord.py
