@@ -10,6 +10,7 @@ WEBHOOK_URL = os.environ.get("F1_DOCS_WEBHOOK")
 HASH_CACHE_FILE = "last_fia_doc_hash.txt"
 GECKO_LOG_FILE = "geckodriver.log"
 
+# Set geckodriver log file
 os.environ["GECKO_DRIVER_LOG"] = GECKO_LOG_FILE
 
 def get_page_html():
@@ -36,32 +37,30 @@ def sha256(text):
 
 def find_new_docs(html, posted_hashes):
     soup = BeautifulSoup(html, "html.parser")
-    first_section = soup.select_one(".views-row")
-    if not first_section:
-        print("❌ No Grand Prix section found.")
+    sections = soup.select(".views-row")
+    if not sections:
+        print("❌ No document sections found.")
         return []
 
-    doc_links = first_section.select("a[href$='.pdf']")
-    new_docs = []
+    doc_links = []
+    for section in sections:
+        doc_links.extend(section.select("a[href$='.pdf']"))
 
+    new_docs = []
     for link in doc_links:
         title = link.text.strip()
         if not title.startswith("Doc"):
             continue
-
         url = link["href"]
         full_url = url if url.startswith("http") else f"https://www.fia.com{url}"
         doc_id = sha256(full_url)
-
         if doc_id not in posted_hashes:
             new_docs.append((title, full_url, doc_id))
 
     return new_docs
 
 def send_to_discord(title, url):
-    data = {
-        "content": f"📄 **{title}**\n{url}"
-    }
+    data = { "content": f"📄 **{title}**\n{url}" }
     response = requests.post(WEBHOOK_URL, json=data)
     return response.status_code == 204
 
