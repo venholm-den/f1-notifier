@@ -19,10 +19,9 @@ def get_page_html():
 
     options = Options()
     options.headless = True
+    options.binary_location = "/usr/bin/firefox"  # Correct way to set Firefox path
 
-    # Explicit path for Firefox on Ubuntu Actions runner
-    binary = FirefoxBinary("/usr/bin/firefox")
-    driver = webdriver.Firefox(firefox_binary=binary, options=options)
+    driver = webdriver.Firefox(options=options)
 
     try:
         driver.get(FIA_DOCS_URL)
