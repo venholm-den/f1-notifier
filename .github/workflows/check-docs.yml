@@ -25,24 +25,22 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests beautifulsoup4 selenium
 
-      - name: Install Firefox & Geckodriver
+      - name: Install Firefox and Geckodriver
         run: |
           sudo apt-get update
-          sudo apt-get install -y firefox
-          GECKO_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-          wget -O geckodriver.tar.gz "https://github.com/mozilla/geckodriver/releases/download/v${GECKO_VERSION}/geckodriver-v${GECKO_VERSION}-linux64.tar.gz"
-          tar -xzf geckodriver.tar.gz
-          chmod +x geckodriver
-          sudo mv geckodriver /usr/local/bin/
+          sudo apt-get install -y firefox libdbus-glib-1-2
+          wget -q https://github.com/mozilla/geckodriver/releases/latest/download/geckodriver-linux64.tar.gz
+          tar -xzf geckodriver-linux64.tar.gz
+          sudo mv geckodriver /usr/local/bin
 
-      - name: Run notifier script
+      - name: Run script
         env:
           MOZ_HEADLESS: 1
         run: |
-          echo "🦊 Running FIA notifier script..."
+          echo "🦊 Launching Firefox headless..."
           python fia_docs_to_discord.py
 
-      - name: Upload Geckodriver log (if exists)
+      - name: Upload geckodriver log (if present)
         if: always()
         uses: actions/upload-artifact@v4
         with:
