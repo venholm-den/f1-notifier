@@ -1,88 +1,113 @@
+# fia_docs_to_discord.py
+
 import os
+import time
+import hashlib
 import requests
+from datetime import datetime
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
-import hashlib
 
-FIA_DOCUMENTS_URL = "https://www.fia.com/documents/f1-world-championship"
-WEBHOOK_URL = os.environ.get("F1_DOCS_WEBHOOK")
-HASH_CACHE_FILE = "last_fia_doc_hash.txt"
-GECKO_LOG_FILE = "geckodriver.log"
-
-# Set geckodriver log file
-os.environ["GECKO_DRIVER_LOG"] = GECKO_LOG_FILE
+FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071"
+WEBHOOK_URL = os.getenv("F1_DOCS_WEBHOOK")
+LAST_HASH_FILE = "last_fia_doc_hash.txt"
 
 def get_page_html():
+    print("🚀 Launching Firefox with Selenium...")
     options = Options()
-    options.add_argument("--headless")
+    options.headless = True
+
+    # Specify Firefox binary path on GitHub Actions runner
+    if os.getenv("CI"):
+        options.binary_location = "/usr/bin/firefox"
+
     driver = webdriver.Firefox(options=options)
-    driver.get(FIA_DOCUMENTS_URL)
-    html = driver.page_source
-    driver.quit()
-    return html
+    try:
+        driver.get(FIA_DOCS_URL)
+        time.sleep(5)
+        html = driver.page_source
+        with open("fia_page_dump.html", "w", encoding="utf-8") as f:
+            f.write(html)
+        print("✅ Dumped FIA page source to fia_page_dump.html")
+        return html
+    finally:
+        driver.quit()
 
-def get_posted_hashes():
-    if os.path.exists(HASH_CACHE_FILE):
-        with open(HASH_CACHE_FILE, "r") as f:
-            return set(line.strip() for line in f)
-    return set()
-
-def save_posted_hashes(hashes):
-    with open(HASH_CACHE_FILE, "w") as f:
-        f.write("\n".join(hashes))
-
-def sha256(text):
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-def find_new_docs(html, posted_hashes):
+def extract_fia_docs(html):
     soup = BeautifulSoup(html, "html.parser")
-    sections = soup.select(".views-row")
-    if not sections:
-        print("❌ No document sections found.")
+    table = soup.find("table", class_="views-table")
+    if not table:
+        print("‼️ Could not find FIA document table.")
         return []
 
-    doc_links = []
-    for section in sections:
-        doc_links.extend(section.select("a[href$='.pdf']"))
-
-    new_docs = []
-    for link in doc_links:
-        title = link.text.strip()
-        if not title.startswith("Doc"):
+    rows = table.select("tbody tr")
+    docs = []
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) < 2:
             continue
-        url = link["href"]
-        full_url = url if url.startswith("http") else f"https://www.fia.com{url}"
-        doc_id = sha256(full_url)
-        if doc_id not in posted_hashes:
-            new_docs.append((title, full_url, doc_id))
+        title = cols[0].text.strip()
+        if not title.lower().startswith("doc"):
+            continue
+        link_tag = cols[0].find("a")
+        if not link_tag:
+            continue
+        link = "https://www.fia.com" + link_tag["href"]
+        docs.append({"title": title, "link": link})
+    return docs
 
-    return new_docs
+def compute_doc_hash(doc):
+    return hashlib.sha256((doc["title"] + doc["link"]).encode()).hexdigest()
 
-def send_to_discord(title, url):
-    data = { "content": f"📄 **{title}**\n{url}" }
-    response = requests.post(WEBHOOK_URL, json=data)
-    return response.status_code == 204
+def load_last_hash():
+    if not os.path.exists(LAST_HASH_FILE):
+        return None
+    with open(LAST_HASH_FILE, "r") as f:
+        return f.read().strip()
+
+def save_last_hash(h):
+    with open(LAST_HASH_FILE, "w") as f:
+        f.write(h)
+
+def post_to_discord(doc):
+    if not WEBHOOK_URL:
+        raise EnvironmentError("F1_DOCS_WEBHOOK is not set.")
+    payload = {
+        "embeds": [{
+            "title": doc["title"],
+            "url": doc["link"],
+            "description": "📄 New FIA F1 document released.",
+            "color": 0x3498DB,
+            "footer": {"text": "FIA F1 Document Update"}
+        }]
+    }
+    res = requests.post(WEBHOOK_URL, json=payload)
+    res.raise_for_status()
 
 def main():
-    print("🚀 Launching Firefox with Selenium...")
     html = get_page_html()
-    posted_hashes = get_posted_hashes()
-    new_docs = find_new_docs(html, posted_hashes)
-
-    if not new_docs:
-        print("✅ No new documents found.")
+    docs = extract_fia_docs(html)
+    if not docs:
+        print("No documents found — exiting.")
         return
 
-    print(f"📦 Found {len(new_docs)} new doc(s):")
-    for title, url, doc_id in new_docs:
-        if send_to_discord(title, url):
-            print(f"✅ Sent to Discord: {title}")
-            posted_hashes.add(doc_id)
-        else:
-            print(f"❌ Failed to send: {title}")
+    last_hash = load_last_hash()
+    new_hashes = []
 
-    save_posted_hashes(posted_hashes)
+    for doc in reversed(docs):  # oldest to newest
+        doc_hash = compute_doc_hash(doc)
+        new_hashes.append(doc_hash)
+
+        if doc_hash == last_hash:
+            print(f"Skipping already-posted doc: {doc['title']}")
+            continue
+
+        print(f"Posting new document: {doc['title']}")
+        post_to_discord(doc)
+
+    if new_hashes:
+        save_last_hash(new_hashes[-1])
 
 if __name__ == "__main__":
     main()
