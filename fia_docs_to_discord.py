@@ -1,89 +1,89 @@
 import os
-import re
-import time
-import hashlib
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.firefox.service import Service as FirefoxService
+import hashlib
 
+FIA_DOCUMENTS_URL = "https://www.fia.com/documents/f1-world-championship"
 WEBHOOK_URL = os.environ.get("F1_DOCS_WEBHOOK")
-DUMP_HTML = True
 HASH_CACHE_FILE = "last_fia_doc_hash.txt"
-FIA_DOCUMENTS_URL = "https://www.fia.com/documents"
-GECKO_LOG_PATH = "geckodriver.log"
+GECKO_LOG_FILE = "geckodriver.log"
 
-# Used to track which docs we've already posted
-def load_posted_hashes():
-    try:
+os.environ["GECKO_DRIVER_LOG"] = GECKO_LOG_FILE
+
+def get_page_html():
+    options = Options()
+    options.add_argument("--headless")
+    driver = webdriver.Firefox(options=options)
+    driver.get(FIA_DOCUMENTS_URL)
+    html = driver.page_source
+    driver.quit()
+    return html
+
+def get_posted_hashes():
+    if os.path.exists(HASH_CACHE_FILE):
         with open(HASH_CACHE_FILE, "r") as f:
-            return set(line.strip() for line in f.readlines())
-    except FileNotFoundError:
-        return set()
+            return set(line.strip() for line in f)
+    return set()
 
 def save_posted_hashes(hashes):
     with open(HASH_CACHE_FILE, "w") as f:
-        for h in sorted(hashes):
-            f.write(h + "\n")
+        f.write("\n".join(hashes))
 
-def hash_doc(title, url):
-    return hashlib.sha256(f"{title}|{url}".encode()).hexdigest()
+def sha256(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-def post_to_discord(title, url):
-    print(f"📣 Posting to Discord: {title}")
-    response = requests.post(WEBHOOK_URL, json={"content": f"**{title}**\n{url}"})
-    if response.status_code != 204:
-        print(f"‼️ Failed to post: {response.status_code} - {response.text}")
+def find_new_docs(html, posted_hashes):
+    soup = BeautifulSoup(html, "html.parser")
+    first_section = soup.select_one(".views-row")
+    if not first_section:
+        print("❌ No Grand Prix section found.")
+        return []
+
+    doc_links = first_section.select("a[href$='.pdf']")
+    new_docs = []
+
+    for link in doc_links:
+        title = link.text.strip()
+        if not title.startswith("Doc"):
+            continue
+
+        url = link["href"]
+        full_url = url if url.startswith("http") else f"https://www.fia.com{url}"
+        doc_id = sha256(full_url)
+
+        if doc_id not in posted_hashes:
+            new_docs.append((title, full_url, doc_id))
+
+    return new_docs
+
+def send_to_discord(title, url):
+    data = {
+        "content": f"📄 **{title}**\n{url}"
+    }
+    response = requests.post(WEBHOOK_URL, json=data)
+    return response.status_code == 204
 
 def main():
-    print("🚀 Launching headless Firefox...")
+    print("🚀 Launching Firefox with Selenium...")
+    html = get_page_html()
+    posted_hashes = get_posted_hashes()
+    new_docs = find_new_docs(html, posted_hashes)
 
-    options = Options()
-    options.add_argument("--headless")
-    os.environ["GECKO_DRIVER_LOG"] = GECKO_LOG_PATH
-    driver = webdriver.Firefox(service=FirefoxService(), options=options)
+    if not new_docs:
+        print("✅ No new documents found.")
+        return
 
-    try:
-        driver.get(FIA_DOCUMENTS_URL)
-        time.sleep(4)
-        page_source = driver.page_source
+    print(f"📦 Found {len(new_docs)} new doc(s):")
+    for title, url, doc_id in new_docs:
+        if send_to_discord(title, url):
+            print(f"✅ Sent to Discord: {title}")
+            posted_hashes.add(doc_id)
+        else:
+            print(f"❌ Failed to send: {title}")
 
-        if DUMP_HTML:
-            with open("fia_page_dump.html", "w", encoding="utf-8") as f:
-                f.write(page_source)
-            print("✅ Dumped FIA page source to fia_page_dump.html")
-
-        soup = BeautifulSoup(page_source, "html.parser")
-        posted_hashes = load_posted_hashes()
-        new_hashes = set()
-
-        found_docs = False
-
-        for link in soup.find_all("a", href=True):
-            title = link.get_text(strip=True)
-            if re.match(r"Doc\s+\d+", title, re.IGNORECASE):
-                url = link["href"]
-                if not url.startswith("http"):
-                    url = "https://www.fia.com" + url
-
-                doc_hash = hash_doc(title, url)
-
-                if doc_hash not in posted_hashes:
-                    found_docs = True
-                    post_to_discord(title, url)
-                    new_hashes.add(doc_hash)
-                else:
-                    print(f"🟡 Already posted: {title}")
-
-        if not found_docs:
-            print("ℹ️ No new 'Doc XX' documents found.")
-
-        save_posted_hashes(posted_hashes.union(new_hashes))
-
-    finally:
-        driver.quit()
+    save_posted_hashes(posted_hashes)
 
 if __name__ == "__main__":
     main()
