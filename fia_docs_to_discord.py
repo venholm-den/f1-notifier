@@ -1,13 +1,14 @@
 # fia_docs_to_discord.py
 
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
+from bs4 import BeautifulSoup
+from datetime import datetime
 import os
 import time
 import hashlib
 import requests
-from datetime import datetime
-from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
 
 FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071"
 WEBHOOK_URL = os.getenv("F1_DOCS_WEBHOOK")
@@ -15,46 +16,51 @@ LAST_HASH_FILE = "last_fia_doc_hash.txt"
 
 def get_page_html():
     print("🚀 Launching Firefox with Selenium...")
+
     options = Options()
     options.headless = True
 
-    # Specify Firefox binary path on GitHub Actions runner
-    if os.getenv("CI"):
-        options.binary_location = "/usr/bin/firefox"
+    # Explicit path for Firefox on Ubuntu Actions runner
+    binary = FirefoxBinary("/usr/bin/firefox")
+    driver = webdriver.Firefox(firefox_binary=binary, options=options)
 
-    driver = webdriver.Firefox(options=options)
     try:
         driver.get(FIA_DOCS_URL)
-        time.sleep(5)
+        time.sleep(5)  # Let JS load
         html = driver.page_source
         with open("fia_page_dump.html", "w", encoding="utf-8") as f:
             f.write(html)
-        print("✅ Dumped FIA page source to fia_page_dump.html")
         return html
     finally:
         driver.quit()
 
-def extract_fia_docs(html):
+def extract_docs_from_html(html):
     soup = BeautifulSoup(html, "html.parser")
     table = soup.find("table", class_="views-table")
+
     if not table:
         print("‼️ Could not find FIA document table.")
         return []
 
     rows = table.select("tbody tr")
+    if not rows:
+        print("⚠️ No rows found in FIA document table.")
+        return []
+
     docs = []
     for row in rows:
         cols = row.find_all("td")
         if len(cols) < 2:
             continue
         title = cols[0].text.strip()
-        if not title.lower().startswith("doc"):
+        if not title.lower().startswith("doc "):
             continue
         link_tag = cols[0].find("a")
-        if not link_tag:
+        if not link_tag or not link_tag.get("href"):
             continue
         link = "https://www.fia.com" + link_tag["href"]
-        docs.append({"title": title, "link": link})
+        published = cols[-1].text.strip()
+        docs.append({"title": title, "link": link, "published": published})
     return docs
 
 def compute_doc_hash(doc):
@@ -77,7 +83,7 @@ def post_to_discord(doc):
         "embeds": [{
             "title": doc["title"],
             "url": doc["link"],
-            "description": "📄 New FIA F1 document released.",
+            "description": f"📄 Published: {doc['published']}",
             "color": 0x3498DB,
             "footer": {"text": "FIA F1 Document Update"}
         }]
@@ -87,7 +93,9 @@ def post_to_discord(doc):
 
 def main():
     html = get_page_html()
-    docs = extract_fia_docs(html)
+    print("✅ Dumped FIA page source to fia_page_dump.html")
+
+    docs = extract_docs_from_html(html)
     if not docs:
         print("No documents found — exiting.")
         return
@@ -95,7 +103,7 @@ def main():
     last_hash = load_last_hash()
     new_hashes = []
 
-    for doc in reversed(docs):  # oldest to newest
+    for doc in reversed(docs):  # Oldest to newest
         doc_hash = compute_doc_hash(doc)
         new_hashes.append(doc_hash)
 
