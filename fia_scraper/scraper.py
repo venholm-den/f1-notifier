@@ -2,19 +2,25 @@ import time
 import os
 import requests
 import hashlib
-import fitz  # PyMuPDF
-import discord
+import fitz  # PyMuPDF for reading and rendering PDFs
+import discord  # For posting to Discord via webhook
 import re
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from bs4 import BeautifulSoup
 
+# FIA documents base URL for 2025 season
 FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071"
+
+# Discord webhook environment variables
 WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 ERROR_WEBHOOK_URL = os.getenv("DISCORD_ERROR_WEBHOOK_URL")
+
+# Cache file path to store hashes of already-processed documents
 CACHE_FILE = "last_fia_doc_hash.txt"
 
+# Launch headless Firefox to get fully rendered FIA documents page
 def get_rendered_html():
     print("🚀 Launching Firefox with Selenium...")
     options = Options()
@@ -27,11 +33,12 @@ def get_rendered_html():
     try:
         print("🌐 Opening FIA 2025 documents page...")
         driver.get(FIA_DOCS_URL)
-        time.sleep(5)
+        time.sleep(5)  # Wait for JS to render content
         return driver.page_source
     finally:
         driver.quit()
 
+# Extract all PDF links from the rendered HTML
 def extract_pdf_links(html):
     soup = BeautifulSoup(html, "html.parser")
     return [
@@ -40,19 +47,23 @@ def extract_pdf_links(html):
         if a["href"].endswith(".pdf")
     ]
 
+# Load previously seen document hashes from cache file
 def load_cached_hashes():
     if not os.path.exists(CACHE_FILE):
         return set()
     with open(CACHE_FILE, "r") as f:
         return set(line.strip() for line in f.readlines())
 
+# Save updated list of hashes to cache file
 def save_cached_hashes(hashes):
     with open(CACHE_FILE, "w") as f:
         f.writelines(h + "\n" for h in sorted(hashes))
 
+# SHA256 hash of the document URL (used for cache comparison)
 def hash_url(url):
     return hashlib.sha256(url.encode()).hexdigest()
 
+# Download a PDF file to a specified folder
 def download_pdf(url, folder):
     filename = url.split("/")[-1]
     path = os.path.join(folder, filename)
@@ -62,10 +73,12 @@ def download_pdf(url, folder):
         f.write(r.content)
     return path
 
+# Extract structured metadata from the first page of a PDF document
 def extract_pdf_metadata(pdf_path):
     doc = fitz.open(pdf_path)
     first_page_text = doc[0].get_text()
 
+    # Extract document number, event title, date/time, driver, reason, etc.
     doc_match = re.search(r"Document\s+(\d+)", first_page_text)
     doc_number = doc_match.group(1) if doc_match else "Unknown"
 
@@ -80,7 +93,6 @@ def extract_pdf_metadata(pdf_path):
     driver_match = re.search(r"No\s*/\s*Driver\s+(\d+)\s*[-–]\s*(.+)", first_page_text)
     driver_info = f"{driver_match.group(1)} – {driver_match.group(2).strip()}" if driver_match else ""
 
-    # ✅ Fixed unterminated regex (was `[^]`, now `[^\\n]`)
     reason_match = re.search(r"Reason\s+([^\n]+)", first_page_text)
     reason = reason_match.group(1).strip() if reason_match else ""
 
@@ -99,6 +111,7 @@ def extract_pdf_metadata(pdf_path):
         "reason": reason
     }
 
+# Convert a multi-page PDF into JPEG images (150 DPI)
 def convert_pdf_to_images(pdf_path, image_folder, base_name=None):
     os.makedirs(image_folder, exist_ok=True)
     doc = fitz.open(pdf_path)
@@ -112,6 +125,7 @@ def convert_pdf_to_images(pdf_path, image_folder, base_name=None):
         image_paths.append(img_path)
     return image_paths
 
+# Format and post metadata + images to Discord via webhook
 def post_images_to_discord(image_paths, metadata):
     doc_num = metadata.get("doc_num", "Unknown")
     title = metadata.get("title", "Untitled")
@@ -136,12 +150,13 @@ def post_images_to_discord(image_paths, metadata):
     if reason:
         content += f"\n_{reason}_"
 
-    files = [discord.File(img) for img in image_paths]
     webhook = discord.SyncWebhook.from_url(WEBHOOK_URL)
+    # Discord allows a max of 10 images per message
     for i in range(0, len(image_paths), 10):
-            files = [discord.File(img) for img in image_paths[i:i+10]]
-            webhook.send(content=content if i == 0 else None, files=files)
+        files = [discord.File(img) for img in image_paths[i:i+10]]
+        webhook.send(content=content if i == 0 else None, files=files)
 
+# Checks if we're currently in a race weekend (±2 days of race date)
 def is_race_weekend():
     try:
         today = datetime.utcnow().date()
@@ -151,13 +166,14 @@ def is_race_weekend():
 
         for race in races:
             race_date = datetime.strptime(race["date"], "%Y-%m-%d").date()
-            if abs((race_date - today).days) <= 2:  # Thursday–Monday
+            if abs((race_date - today).days) <= 2:  # Thursday–Monday window
                 return True
         return False
     except Exception as e:
         print(f"⚠️ Failed to check race weekend: {e}")
-        return True  # Fail open
+        return True  # Fail-open: assume it's a race weekend to avoid missing data
 
+# Report any unexpected errors via separate error webhook
 def report_error_to_discord(error_msg):
     if ERROR_WEBHOOK_URL:
         try:
@@ -168,6 +184,7 @@ def report_error_to_discord(error_msg):
     else:
         print("⚠️ DISCORD_ERROR_WEBHOOK_URL not set")
 
+# Orchestration function: scrape, deduplicate, post new PDFs
 def main():
     if not is_race_weekend():
         print("⏭️ Not a race weekend. Exiting.")

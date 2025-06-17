@@ -1,54 +1,65 @@
-name: FIA Document Scraper
+name: FIA Scraper
 
+# Trigger this workflow on every push or on a schedule (customize as needed)
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Every 10 minutes
-  workflow_dispatch:
+    # Every 5 minutes on Friday, Saturday, and Sunday (race weekend scanning)
+    - cron: '*/5 * * * 5'
+    - cron: '*/5 * * * 6'
+    - cron: '*/5 * * * 0'
+    # Once daily at 09:00 UTC on Monday–Thursday (light check)
+    - cron: '0 9 * * 1'
+    - cron: '0 9 * * 2'
+    - cron: '0 9 * * 3'
+    - cron: '0 9 * * 4'
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions UI
+  push:
+    paths:
+      - "fia_scraper/**"
+      - ".github/workflows/fia_scraper.yml"
 
 jobs:
-  scrape:
-    runs-on: ubuntu-24.04
+  scrape-and-notify:
+    runs-on: ubuntu-24.04  # Use latest Ubuntu runner
 
     env:
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       DISCORD_ERROR_WEBHOOK_URL: ${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      # 🧹 Step 1: Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+      # 🐍 Step 2: Set up Python
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
 
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      # 📦 Step 3: Install dependencies from requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Install Firefox and Geckodriver (v127.0 / v0.34.0)
-      run: |
-        set -ex
-        sudo apt update
-        sudo apt install -y wget tar xauth xvfb \
-          libdbus-glib-1-2 libgtk-3-0 libx11-xcb1 \
-          libxcb-shm0 libxcb-dri3-0 libxrandr2 libnss3 \
-          libasound2t64 libxss1 libxtst6 || true
+      # 🧪 Step 4: Cache file support (to prevent reposting same PDFs)
+      - name: Restore cache of processed documents
+        id: cache-restore
+        uses: actions/cache@v4
+        with:
+          path: last_fia_doc_hash.txt  # The cache file storing hashed URLs
+          key: fia-doc-cache-v1        # Key to identify the cache version
 
-        wget https://ftp.mozilla.org/pub/firefox/releases/127.0/linux-x86_64/en-US/firefox-127.0.tar.bz2
-        tar -xjf firefox-127.0.tar.bz2
-        sudo mv firefox /opt/firefox127
-        sudo ln -sf /opt/firefox127/firefox /usr/local/bin/firefox
+      # 🧠 Step 5: Run the scraper script
+      - name: Run FIA scraper
+        run: xvfb-run --auto-servernum python fia_scraper/scraper.py
+        # Uses xvfb to enable headless browser rendering with Firefox + Selenium
 
-        wget https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux64.tar.gz
-        tar -xzf geckodriver-v0.34.0-linux64.tar.gz
-        chmod +x geckodriver
-        sudo mv geckodriver /usr/local/bin/
-
-        echo "✅ Firefox: $(firefox --version)"
-        echo "✅ Geckodriver: $(geckodriver --version)"
-
-    - name: Run FIA document scraper
-      run: |
-        xvfb-run --auto-servernum python fia_scraper/scraper.py
+      # 💾 Step 6: Save updated cache after new documents processed
+      - name: Save updated cache
+        if: always()  # Always attempt to update cache even if script fails
+        uses: actions/cache/save@v4
+        with:
+          path: last_fia_doc_hash.txt
+          key: fia-doc-cache-v1
