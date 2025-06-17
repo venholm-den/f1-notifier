@@ -5,10 +5,37 @@ import hashlib
 import fitz  # PyMuPDF for reading and rendering PDFs
 import discord  # For posting to Discord via webhook
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from bs4 import BeautifulSoup
+
+# 2025 Formula 1 calendar (official or customized as needed)
+RACE_DATES_2025 = [
+    "2025-03-16",  # Australia
+    "2025-03-23",  # Saudi Arabia
+    "2025-04-06",  # Japan
+    "2025-04-20",  # China
+    "2025-05-04",  # Miami
+    "2025-05-18",  # Emilia-Romagna
+    "2025-05-25",  # Monaco
+    "2025-06-08",  # Canada
+    "2025-06-22",  # Spain
+    "2025-06-29",  # Austria
+    "2025-07-06",  # UK
+    "2025-07-20",  # Hungary
+    "2025-07-27",  # Belgium
+    "2025-08-31",  # Netherlands
+    "2025-09-07",  # Italy
+    "2025-09-21",  # Azerbaijan
+    "2025-10-05",  # Singapore
+    "2025-10-19",  # USA
+    "2025-10-26",  # Mexico
+    "2025-11-09",  # Brazil
+    "2025-11-22",  # Las Vegas
+    "2025-12-07",  # Qatar
+    "2025-12-14",  # Abu Dhabi
+]
 
 # FIA documents base URL for 2025 season
 FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071"
@@ -78,22 +105,21 @@ def extract_pdf_metadata(pdf_path):
     doc = fitz.open(pdf_path)
     first_page_text = doc[0].get_text()
 
-    # Extract document number, event title, date/time, driver, reason, etc.
-    doc_match = re.search(r"Document\s+(\d+)", first_page_text)
+    doc_match = re.search(r"Document\\s+(\\d+)", first_page_text)
     doc_number = doc_match.group(1) if doc_match else "Unknown"
 
-    event_match = re.search(r"(\d{4}\s+.*?Grand Prix)", first_page_text, re.IGNORECASE)
+    event_match = re.search(r"(\\d{4}\\s+.*?Grand Prix)", first_page_text, re.IGNORECASE)
     event = event_match.group(1).title().replace("  ", " ") if event_match else "Event Unknown"
 
-    date_match = re.search(r"Date\s+([0-9]{1,2}\s+[A-Za-z]+\s+\d{4})", first_page_text)
-    time_match = re.search(r"Time\s+([0-9]{2}:[0-9]{2})", first_page_text)
+    date_match = re.search(r"Date\\s+([0-9]{1,2}\\s+[A-Za-z]+\\s+\\d{4})", first_page_text)
+    time_match = re.search(r"Time\\s+([0-9]{2}:[0-9]{2})", first_page_text)
     date = date_match.group(1).strip() if date_match else ""
     time_str = time_match.group(1).strip() if time_match else ""
 
-    driver_match = re.search(r"No\s*/\s*Driver\s+(\d+)\s*[-–]\s*(.+)", first_page_text)
+    driver_match = re.search(r"No\\s*/\\s*Driver\\s+(\\d+)\\s*[-–]\\s*(.+)", first_page_text)
     driver_info = f"{driver_match.group(1)} – {driver_match.group(2).strip()}" if driver_match else ""
 
-    reason_match = re.search(r"Reason\s+([^\n]+)", first_page_text)
+    reason_match = re.search(r"Reason\\s+([^\\n]+)", first_page_text)
     reason = reason_match.group(1).strip() if reason_match else ""
 
     title_match = re.search(
@@ -151,45 +177,37 @@ def post_images_to_discord(image_paths, metadata):
         content += f"\n_{reason}_"
 
     webhook = discord.SyncWebhook.from_url(WEBHOOK_URL)
-    # Discord allows a max of 10 images per message
     for i in range(0, len(image_paths), 10):
         files = [discord.File(img) for img in image_paths[i:i+10]]
         webhook.send(content=content if i == 0 else None, files=files)
 
-# Checks if we're currently in a race weekend (±2 days of race date)
+# Check if today is within ±2 days of a race date
 def is_race_weekend():
-    try:
-        today = datetime.utcnow().date()
-        url = "https://ergast.com/api/f1/current.json"
-        r = requests.get(url)
-        races = r.json()["MRData"]["RaceTable"]["Races"]
+    today = datetime.utcnow().date()
+    race_dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in RACE_DATES_2025]
+    for race_day in race_dates:
+        if abs((race_day - today).days) <= 2:
+            return True
+    return False
 
-        for race in races:
-            race_date = datetime.strptime(race["date"], "%Y-%m-%d").date()
-            if abs((race_date - today).days) <= 2:  # Thursday–Monday window
-                return True
-        return False
-    except Exception as e:
-        print(f"⚠️ Failed to check race weekend: {e}")
-        return True  # Fail-open: assume it's a race weekend to avoid missing data
-
-# Report any unexpected errors via separate error webhook
+# Report unexpected errors to Discord error channel
 def report_error_to_discord(error_msg):
     if ERROR_WEBHOOK_URL:
         try:
             webhook = discord.SyncWebhook.from_url(ERROR_WEBHOOK_URL)
-            webhook.send(content=f"❌ FIA Scraper Error:\n```\n{error_msg}\n```")
+            webhook.send(content=f"❌ FIA Scraper Error:\n```
+{error_msg}\n```")
         except Exception as e:
             print(f"⚠️ Failed to send error to Discord: {e}")
     else:
         print("⚠️ DISCORD_ERROR_WEBHOOK_URL not set")
 
-# Orchestration function: scrape, deduplicate, post new PDFs
+# Main scraping and processing routine
 def main():
     if not is_race_weekend():
         print("⏭️ Not a race weekend. Exiting.")
         return
-    
+
     try:
         html = get_rendered_html()
         pdf_links = extract_pdf_links(html)
