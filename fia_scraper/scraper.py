@@ -5,6 +5,7 @@ import hashlib
 import fitz  # PyMuPDF for reading and rendering PDFs
 import discord  # For posting to Discord via webhook
 import re
+import sys
 from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
@@ -203,6 +204,9 @@ def report_error_to_discord(error_msg):
 
 # Main scraping and processing routine
 def main():
+    # Check for `--force` flag to override race weekend logic
+    force = "--force" in sys.argv
+
     if not is_race_weekend():
         print("⏭️ Not a race weekend. Exiting.")
         return
