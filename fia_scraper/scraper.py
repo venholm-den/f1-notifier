@@ -207,8 +207,9 @@ def main():
     # Check for `--force` flag to override race weekend logic
     force = "--force" in sys.argv
 
-    if not is_race_weekend():
-        print("⏭️ Not a race weekend. Exiting.")
+    # Skip if not a race weekend unless force override is active
+    if not force and not is_race_weekend():
+        print("⏭️ Not a race weekend. Exiting. Use --force to override.")
         return
 
     try:
