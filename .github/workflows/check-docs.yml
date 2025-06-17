@@ -1,10 +1,5 @@
 name: check-docs
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: '*/15 * * * *'
-
 env:
   F1_DOCS_WEBHOOK: ${{ secrets.F1_DOCS_WEBHOOK }}
   GECKO_DRIVER_LOG: geckodriver.log
