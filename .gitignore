@@ -1,8 +1,0 @@
-- # Ignore hash cache file for posted docs
-- last_fia_doc_hash.txt
-
-# Ignore Firefox dump HTML
-fia_page_dump.html
-
-# Logs
-*.log
