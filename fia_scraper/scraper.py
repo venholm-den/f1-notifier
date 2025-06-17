@@ -105,21 +105,21 @@ def extract_pdf_metadata(pdf_path):
     doc = fitz.open(pdf_path)
     first_page_text = doc[0].get_text()
 
-    doc_match = re.search(r"Document\\s+(\\d+)", first_page_text)
+    doc_match = re.search(r"Document\s+(\d+)", first_page_text)
     doc_number = doc_match.group(1) if doc_match else "Unknown"
 
-    event_match = re.search(r"(\\d{4}\\s+.*?Grand Prix)", first_page_text, re.IGNORECASE)
+    event_match = re.search(r"(\d{4}\s+.*?Grand Prix)", first_page_text, re.IGNORECASE)
     event = event_match.group(1).title().replace("  ", " ") if event_match else "Event Unknown"
 
-    date_match = re.search(r"Date\\s+([0-9]{1,2}\\s+[A-Za-z]+\\s+\\d{4})", first_page_text)
-    time_match = re.search(r"Time\\s+([0-9]{2}:[0-9]{2})", first_page_text)
+    date_match = re.search(r"Date\s+([0-9]{1,2}\s+[A-Za-z]+\s+\d{4})", first_page_text)
+    time_match = re.search(r"Time\s+([0-9]{2}:[0-9]{2})", first_page_text)
     date = date_match.group(1).strip() if date_match else ""
     time_str = time_match.group(1).strip() if time_match else ""
 
-    driver_match = re.search(r"No\\s*/\\s*Driver\\s+(\\d+)\\s*[-–]\\s*(.+)", first_page_text)
+    driver_match = re.search(r"No\s*/\s*Driver\s+(\d+)\s*[-–]\s*(.+)", first_page_text)
     driver_info = f"{driver_match.group(1)} – {driver_match.group(2).strip()}" if driver_match else ""
 
-    reason_match = re.search(r"Reason\\s+([^\\n]+)", first_page_text)
+    reason_match = re.search(r"Reason\s+([^\n]+)", first_page_text)
     reason = reason_match.group(1).strip() if reason_match else ""
 
     title_match = re.search(
@@ -195,8 +195,7 @@ def report_error_to_discord(error_msg):
     if ERROR_WEBHOOK_URL:
         try:
             webhook = discord.SyncWebhook.from_url(ERROR_WEBHOOK_URL)
-            webhook.send(content=f"❌ FIA Scraper Error:\n```
-{error_msg}\n```")
+            webhook.send(content=f"❌ FIA Scraper Error:\n```{error_msg}\n```")
         except Exception as e:
             print(f"⚠️ Failed to send error to Discord: {e}")
     else:
