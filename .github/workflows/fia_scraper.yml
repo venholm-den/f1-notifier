@@ -30,28 +30,39 @@ jobs:
     - name: Install Firefox and Geckodriver (v127.0 / v0.34.0)
       run: |
         set -ex
-    
+
         sudo apt update
         sudo apt install -y wget tar xauth xvfb \
           libdbus-glib-1-2 libgtk-3-0 libx11-xcb1 \
           libxcb-shm0 libxcb-dri3-0 libxrandr2 libnss3 \
           libasound2t64 libxss1 libxtst6 || true
-    
-        # ✅ Working Firefox 127.0
+
         wget https://ftp.mozilla.org/pub/firefox/releases/127.0/linux-x86_64/en-US/firefox-127.0.tar.bz2
         tar -xjf firefox-127.0.tar.bz2
         sudo mv firefox /opt/firefox127
         sudo ln -sf /opt/firefox127/firefox /usr/local/bin/firefox
-    
-        # ✅ Geckodriver 0.34.0
+
         wget https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux64.tar.gz
         tar -xzf geckodriver-v0.34.0-linux64.tar.gz
         chmod +x geckodriver
         sudo mv geckodriver /usr/local/bin/
-    
+
         echo "✅ Firefox: $(firefox --version)"
         echo "✅ Geckodriver: $(geckodriver --version)"
+
+    - name: Restore FIA doc hash cache
+      uses: actions/cache@v4
+      with:
+        path: last_fia_doc_hash.txt
+        key: fia-doc-cache-v1
 
     - name: Run FIA document scraper
       run: |
         xvfb-run --auto-servernum python fia_scraper/scraper.py
+
+    - name: Save FIA doc hash cache
+      if: always()
+      uses: actions/cache/save@v4
+      with:
+        path: last_fia_doc_hash.txt
+        key: fia-doc-cache-v1
