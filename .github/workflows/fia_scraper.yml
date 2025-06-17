@@ -27,19 +27,18 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Install Firefox and Geckodriver
+    - name: Install Firefox and Geckodriver (pinned)
       run: |
         sudo apt update
-        sudo apt install -y firefox
-        FIREFOX_VERSION=$(firefox --version)
-        echo "Installed Firefox: $FIREFOX_VERSION"
-        
-        FIREFOX_MAJOR=$(firefox --version | grep -oP '\d+' | head -1)
-        GECKO_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases | jq -r '.[].tag_name' | grep -E "^v$FIREFOX_MAJOR" | head -1)
-        echo "Installing Geckodriver $GECKO_VERSION for Firefox $FIREFOX_MAJOR"
-        
-        wget -q https://github.com/mozilla/geckodriver/releases/download/$GECKO_VERSION/geckodriver-$GECKO_VERSION-linux64.tar.gz
-        tar -xzf geckodriver-*.tar.gz
+        sudo apt install -y libdbus-glib-1-2
+        wget -q https://ftp.mozilla.org/pub/firefox/releases/127.0/linux-x86_64/en-US/firefox-127.0.tar.bz2
+        tar -xjf firefox-127.0.tar.bz2
+        sudo mv firefox /opt/firefox127
+        sudo ln -sf /opt/firefox127/firefox /usr/local/bin/firefox
+        echo "Firefox version: $(firefox --version)"
+
+        wget -q https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux64.tar.gz
+        tar -xzf geckodriver-v0.34.0-linux64.tar.gz
         chmod +x geckodriver
         sudo mv geckodriver /usr/local/bin/
 
