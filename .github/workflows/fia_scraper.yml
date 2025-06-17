@@ -22,19 +22,31 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Firefox 127 and Geckodriver 0.36.0
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libdbus-glib-1-2 libgtk-3-0 libx11-xcb1 libxcb-shm0 libxcb-dri3-0 libxrandr2
+          sudo apt-get install -y \
+            libdbus-glib-1-2 \
+            libgtk-3-0 \
+            libx11-xcb1 \
+            libxcb-shm0 \
+            libxcb-dri3-0 \
+            libxrandr2 \
+            libnss3 \
+            libasound2 \
+            libxss1 \
+            libxtst6 \
+            xauth \
+            xvfb
 
-          # Install Firefox 127
+      - name: Install Firefox 127 and Geckodriver 0.36.0
+        run: |
           wget -q https://ftp.mozilla.org/pub/firefox/releases/127.0/linux-x86_64/en-US/firefox-127.0.tar.bz2
           tar -xjf firefox-127.0.tar.bz2
           sudo mv firefox /opt/firefox127
           sudo ln -sf /opt/firefox127/firefox /usr/local/bin/firefox
           echo "Installed Firefox version: $(firefox --version)"
 
-          # Install Geckodriver 0.36.0
           wget -q https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v0.36.0-linux64.tar.gz
           tar -xzf geckodriver-v0.36.0-linux64.tar.gz
           chmod +x geckodriver
