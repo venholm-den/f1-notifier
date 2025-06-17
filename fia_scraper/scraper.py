@@ -154,9 +154,10 @@ def report_error_to_discord(error_msg):
         print("⚠️ DISCORD_ERROR_WEBHOOK_URL not set")
 
 def main():
-    if not is_race_weekend():
-        print("⏭️ Not a race weekend. Exiting.")
-        return
+    # 🧪 Temporarily disabled race weekend restriction for testing
+    # if not is_race_weekend():
+    #     print("⏭️ Not a race weekend. Exiting.")
+    #     return
 
     try:
         html = get_rendered_html()
