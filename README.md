@@ -1,77 +1,124 @@
-🏁 FIA Document Scraper
+# 🏎️ FIA F1 Document Scraper
 
-Automatically monitors and posts official FIA Formula 1 PDF documents (e.g., decisions, summons, classifications) to Discord during race weekends.
-🔧 Features
+This project automatically scrapes official FIA PDF documents for each Formula 1 Grand Prix (summons, decisions, classifications, etc.) and posts them to a Discord channel as image previews.
 
-    🕵️ Scrapes the FIA’s official documents page for F1 2025 season.
+---
 
-    📁 Renames and hashes documents to avoid re-posting duplicates.
+## 📆 Features
 
-    🖼️ Converts PDFs to images for cleaner previews in Discord.
+- Scrapes PDFs from the [FIA 2025 F1 Documents page](https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071)
+- Extracts metadata (Doc #, title, driver, reason, event, date, time)
+- Converts PDF pages to JPEGs and posts to Discord via webhook
+- Caches previously posted documents to avoid duplicates
+- Runs automatically on GitHub Actions:
+  - **Every 5 minutes** on race weekends
+  - **Once per day** on non-race days
+- Error alerts are sent to a separate Discord channel
 
-    🧠 Extracts metadata (Doc number, driver, event, time, reason).
+---
 
-    📅 Only runs during race weekends, using live data from the Ergast F1 API.
+## 🧰 Setup
 
-    🧵 Posts nicely formatted messages with embedded images to Discord.
+### 1. Clone the repo
 
-    🚨 Error reporting to a separate Discord webhook channel.
+```bash
+git clone https://github.com/YOUR_USERNAME/f1-notifier.git
+cd f1-notifier
+```
 
-🧱 Project Structure
+### 2. Install Python dependencies
 
+```bash
+pip install -r requirements.txt
+```
+
+Required packages:
+- `discord.py`
+- `requests`
+- `beautifulsoup4`
+- `PyMuPDF`
+- `selenium`
+
+### 3. Environment variables
+
+Create a `.env` file or export these in your shell or CI:
+
+```env
+DISCORD_WEBHOOK_URL=your_discord_webhook
+DISCORD_ERROR_WEBHOOK_URL=your_error_channel_webhook
+```
+
+---
+
+## ⚙️ GitHub Actions
+
+The workflow is defined in `.github/workflows/fia_scraper.yml`.
+
+It runs:
+
+- **Every 5 minutes**: `cron: '*/5 * * * *'`
+- The Python script will skip if it's not a race weekend (±2 days of a listed race date)
+- Race weekends are hardcoded in the script (`RACE_DATES_2025`)
+
+You can also run the workflow manually from the GitHub UI.
+
+---
+
+## 📁 Project Structure
+
+```text
 fia_scraper/
-├── scraper.py              # Main logic
-├── last_fia_doc_hash.txt   # Local cache of previously seen document hashes
-├── fia_docs/               # Downloaded PDFs (runtime)
-├── jpg_output/             # Converted images (runtime)
+├── scraper.py              # Main scraper logic
+├── last_fia_doc_hash.txt   # Cache of previously seen documents
 .github/
 └── workflows/
-    └── fia_scraper.yml     # GitHub Actions workflow file
+    └── fia_scraper.yml     # GitHub Actions CI runner
+```
 
-🚀 Setup & Deployment
-1. 🧪 Local Testing
+---
 
-pip install -r requirements.txt
-export DISCORD_WEBHOOK_URL=your_webhook
-export DISCORD_ERROR_WEBHOOK_URL=your_error_webhook
+## 🛠️ Developer Notes
+
+- Uses headless Firefox with Selenium to render JavaScript-based PDF links
+- Converts PDFs to 150 DPI JPEGs with PyMuPDF for Discord image display
+- Supports up to 10 images per Discord message (splits longer PDFs)
+- Automatically formats and posts detailed messages with doc metadata
+
+---
+
+## 🧪 Manual Run (Local)
+
+To run manually on your machine:
+
+```bash
 python fia_scraper/scraper.py
+```
 
-2. 🛰 GitHub Actions Deployment
+---
 
-The workflow runs every 10 minutes, but exits early unless a race weekend is detected:
+## 📅 Updating the Calendar
 
-on:
-  schedule:
-    - cron: '*/10 * * * *'
+Race weekends are hardcoded in `RACE_DATES_2025` inside `scraper.py`. Update as the official calendar changes.
 
-It uses:
+```python
+RACE_DATES_2025 = [
+    "2025-03-16",  # Australia
+    ...
+]
+```
 
-    Firefox 127.0
+---
 
-    Geckodriver 0.34.0
+## 🧼 To Do
 
-    Python 3.12
+- Auto-cleanup old JPEGs or archive them
+- Optional: store metadata in JSON or DB
+- Optional: Add retry/backoff for flaky PDF downloads
+- Optional: Support for other FIA championships (F2, F3)
 
-3. 🔐 Secrets
+---
 
-Define these GitHub secrets in your repo:
-Secret Name	Description
-DISCORD_WEBHOOK_URL	Discord channel to post updates
-DISCORD_ERROR_WEBHOOK_URL	Optional error log webhook
-🧠 Race Weekend Detection
+## 📬 Contact
 
-Uses the Ergast API to dynamically detect if a race is within ±2 days of today (UTC). This prevents unnecessary scraping during off weekends.
-📎 Example Discord Post
-
-**Doc 22 — Infringement — 55 – Carlos Sainz**
-2025 Canadian Grand Prix — 9 June 2025 — 15:30
-_Failed to follow safety car instructions._
-[Attached: Page 1 of PDF]
-
-🐛 Known Limitations
-
-    FIA may change site structure without notice
-
-    Limited to 10 images per Discord post (Discord API limit)
-
-    Rate limits and large PDFs may occasionally trigger errors
+Built by [@Kyle](https://github.com/venholm-den).  
+Have suggestions or issues? Open an issue or PR!
