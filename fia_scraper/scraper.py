@@ -138,7 +138,9 @@ def post_images_to_discord(image_paths, metadata):
 
     files = [discord.File(img) for img in image_paths]
     webhook = discord.SyncWebhook.from_url(WEBHOOK_URL)
-    webhook.send(content=content, files=files)
+    for i in range(0, len(image_paths), 10):
+            files = [discord.File(img) for img in image_paths[i:i+10]]
+            webhook.send(content=content if i == 0 else None, files=files)
 
 def is_race_weekend():
     return datetime.utcnow().strftime("%A") in ["Friday", "Saturday", "Sunday"]
