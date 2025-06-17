@@ -143,7 +143,20 @@ def post_images_to_discord(image_paths, metadata):
             webhook.send(content=content if i == 0 else None, files=files)
 
 def is_race_weekend():
-    return datetime.utcnow().strftime("%A") in ["Friday", "Saturday", "Sunday"]
+    try:
+        today = datetime.utcnow().date()
+        url = "https://ergast.com/api/f1/current.json"
+        r = requests.get(url)
+        races = r.json()["MRData"]["RaceTable"]["Races"]
+
+        for race in races:
+            race_date = datetime.strptime(race["date"], "%Y-%m-%d").date()
+            if abs((race_date - today).days) <= 2:  # Thursday–Monday
+                return True
+        return False
+    except Exception as e:
+        print(f"⚠️ Failed to check race weekend: {e}")
+        return True  # Fail open
 
 def report_error_to_discord(error_msg):
     if ERROR_WEBHOOK_URL:
@@ -156,11 +169,10 @@ def report_error_to_discord(error_msg):
         print("⚠️ DISCORD_ERROR_WEBHOOK_URL not set")
 
 def main():
-    # 🧪 Temporarily disabled race weekend restriction for testing
-    # if not is_race_weekend():
-    #     print("⏭️ Not a race weekend. Exiting.")
-    #     return
-
+    if not is_race_weekend():
+        print("⏭️ Not a race weekend. Exiting.")
+        return
+    
     try:
         html = get_rendered_html()
         pdf_links = extract_pdf_links(html)
