@@ -30,7 +30,7 @@ jobs:
     - name: Install Firefox and Geckodriver (pinned)
       run: |
         sudo apt update
-        sudo apt install -y libdbus-glib-1-2
+        sudo apt install -y libdbus-glib-1-2 wget tar bzip2
         wget -q https://ftp.mozilla.org/pub/firefox/releases/127.0/linux-x86_64/en-US/firefox-127.0.tar.bz2
         tar -xjf firefox-127.0.tar.bz2
         sudo mv firefox /opt/firefox127
@@ -41,6 +41,10 @@ jobs:
         tar -xzf geckodriver-v0.34.0-linux64.tar.gz
         chmod +x geckodriver
         sudo mv geckodriver /usr/local/bin/
+        echo "Geckodriver version: $(geckodriver --version)"
+
+    - name: Set DISPLAY environment (for headless Firefox)
+      run: echo "DISPLAY=:99" >> $GITHUB_ENV
 
     - name: Run scraper
       run: python fia_scraper/scraper.py
