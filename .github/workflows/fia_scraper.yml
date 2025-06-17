@@ -27,7 +27,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Install Firefox and Geckodriver (v139.0 / v0.36.0)
+    - name: Install Firefox and Geckodriver (v127.0 / v0.34.0)
       run: |
         set -ex
     
@@ -37,14 +37,15 @@ jobs:
           libxcb-shm0 libxcb-dri3-0 libxrandr2 libnss3 \
           libasound2t64 libxss1 libxtst6 || true
     
-        # Firefox 139.0 instead of 139.0.1 (to avoid broken link)
-        wget https://ftp.mozilla.org/pub/firefox/releases/139.0/linux-x86_64/en-US/firefox-139.0.tar.bz2
-        tar -xjf firefox-139.0.tar.bz2
-        sudo mv firefox /opt/firefox139
-        sudo ln -sf /opt/firefox139/firefox /usr/local/bin/firefox
+        # ✅ Working Firefox 127.0
+        wget https://ftp.mozilla.org/pub/firefox/releases/127.0/linux-x86_64/en-US/firefox-127.0.tar.bz2
+        tar -xjf firefox-127.0.tar.bz2
+        sudo mv firefox /opt/firefox127
+        sudo ln -sf /opt/firefox127/firefox /usr/local/bin/firefox
     
-        wget https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v0.36.0-linux64.tar.gz
-        tar -xzf geckodriver-v0.36.0-linux64.tar.gz
+        # ✅ Geckodriver 0.34.0
+        wget https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux64.tar.gz
+        tar -xzf geckodriver-v0.34.0-linux64.tar.gz
         chmod +x geckodriver
         sudo mv geckodriver /usr/local/bin/
     
