@@ -33,7 +33,7 @@ jobs:
             libxcb-dri3-0 \
             libxrandr2 \
             libnss3 \
-            libasound2 \
+            libasound2t64 \   # 👈 fixed from libasound2
             libxss1 \
             libxtst6 \
             xauth \
