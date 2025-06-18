@@ -2,23 +2,21 @@ name: FIA Scraper
 
 on:
   schedule:
-    # Every 5 minutes on Friday, Saturday, and Sunday (race weekend scanning)
+    # ⏱️ Every 5 minutes on Friday (5), Saturday (6), Sunday (0) – Race weekends
     - cron: '*/5 * * * 5'
     - cron: '*/5 * * * 6'
     - cron: '*/5 * * * 0'
-    # Once daily at 09:00 UTC on Monday–Thursday (light check)
-    - cron: '0 9 * * 1'
-    - cron: '0 9 * * 2'
-    - cron: '0 9 * * 3'
-    - cron: '0 9 * * 4'
-
+    # 🕐 Daily check at 01:00 UTC (early enough to catch pre-9AM events)
+    - cron: '0 1 * * 1'
+    - cron: '0 1 * * 2'
+    - cron: '0 1 * * 3'
+    - cron: '0 1 * * 4'
   workflow_dispatch:
     inputs:
       force:
         description: "Force run regardless of race weekend"
         required: false
         default: "false"
-
   push:
     paths:
       - "fia_scraper/**"
@@ -33,39 +31,36 @@ jobs:
       DISCORD_ERROR_WEBHOOK_URL: ${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
 
     steps:
-      # 🧹 Step 1: Clone the repo
+      # ✅ Step 1: Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🐍 Step 2: Set up Python 3.12
+      # 🐍 Step 2: Setup Python
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: 3.12
 
       # 📦 Step 3: Install Python dependencies
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 🧪 Step 4: Restore cache of processed documents
-      - name: Restore document hash cache
+      # 🔁 Step 4: Restore document hash cache (with fallback)
+      - name: Restore cache of processed documents
         id: cache-restore
         uses: actions/cache@v4
         with:
           path: last_fia_doc_hash.txt
-          key: fia-doc-cache-v2
+          key: fia-doc-cache-v2-${{ github.run_id }}
+          restore-keys: |
+            fia-doc-cache-v2-
 
-      # 🧠 Step 5: Run the scraper script with optional --force if manually triggered
+      # 🧠 Step 5: Run the scraper
       - name: Run FIA scraper
         run: |
-          FORCE_INPUT="${{ github.event.inputs.force || 'false' }}"
-          FORCE_FLAG=""
-          if [[ "$FORCE_INPUT" == "true" ]]; then
-            FORCE_FLAG="--force"
-          fi
-          xvfb-run --auto-servernum python fia_scraper/scraper.py $FORCE_FLAG
+          xvfb-run --auto-servernum python fia_scraper/scraper.py ${{ inputs.force == 'true' && '--force' || '' }}
 
       # 💾 Step 6: Save updated document hash cache
       - name: Save updated cache
@@ -73,4 +68,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: last_fia_doc_hash.txt
-          key: fia-doc-cache-v2
+          key: fia-doc-cache-v2-${{ github.run_id }}
