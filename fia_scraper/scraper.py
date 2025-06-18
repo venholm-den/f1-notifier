@@ -13,29 +13,30 @@ from bs4 import BeautifulSoup
 
 # 2025 Formula 1 calendar (official or customized as needed)
 RACE_DATES_2025 = [
-    "2025-03-16",  # Australia
-    "2025-03-23",  # Saudi Arabia
-    "2025-04-06",  # Japan
-    "2025-04-20",  # China
-    "2025-05-04",  # Miami
-    "2025-05-18",  # Emilia-Romagna
-    "2025-05-25",  # Monaco
-    "2025-06-08",  # Canada
-    "2025-06-22",  # Spain
-    "2025-06-29",  # Austria
-    "2025-07-06",  # UK
-    "2025-07-20",  # Hungary
-    "2025-07-27",  # Belgium
-    "2025-08-31",  # Netherlands
-    "2025-09-07",  # Italy
-    "2025-09-21",  # Azerbaijan
-    "2025-10-05",  # Singapore
-    "2025-10-19",  # USA
-    "2025-10-26",  # Mexico
-    "2025-11-09",  # Brazil
-    "2025-11-22",  # Las Vegas
-    "2025-12-07",  # Qatar
-    "2025-12-14",  # Abu Dhabi
+  "2025-03-16",  # Australian GP — Melbourne :contentReference[oaicite:1]{index=1}
+  "2025-03-23",  # Chinese GP — Shanghai :contentReference[oaicite:2]{index=2}
+  "2025-04-06",  # Japanese GP — Suzuka :contentReference[oaicite:3]{index=3}
+  "2025-04-13",  # Bahrain GP — Sakhir :contentReference[oaicite:4]{index=4}
+  "2025-04-20",  # Saudi Arabian GP — Jeddah :contentReference[oaicite:5]{index=5}
+  "2025-05-04",  # Miami GP — Miami :contentReference[oaicite:6]{index=6}
+  "2025-05-18",  # Emilia-Romagna GP — Imola :contentReference[oaicite:7]{index=7}
+  "2025-05-25",  # Monaco GP — Monaco :contentReference[oaicite:8]{index=8}
+  "2025-06-01",  # Spanish GP — Barcelona :contentReference[oaicite:9]{index=9}
+  "2025-06-15",  # Canadian GP — Montreal :contentReference[oaicite:10]{index=10}
+  "2025-06-29",  # Austrian GP — Spielberg :contentReference[oaicite:11]{index=11}
+  "2025-07-06",  # British GP — Silverstone :contentReference[oaicite:12]{index=12}
+  "2025-07-27",  # Belgian GP — Spa :contentReference[oaicite:13]{index=13}
+  "2025-08-03",  # Hungarian GP — Budapest :contentReference[oaicite:14]{index=14}
+  "2025-08-31",  # Dutch GP — Zandvoort :contentReference[oaicite:15]{index=15}
+  "2025-09-07",  # Italian GP — Monza :contentReference[oaicite:16]{index=16}
+  "2025-09-21",  # Azerbaijan GP — Baku :contentReference[oaicite:17]{index=17}
+  "2025-10-05",  # Singapore GP — Singapore :contentReference[oaicite:18]{index=18}
+  "2025-10-19",  # United States GP — Austin :contentReference[oaicite:19]{index=19}
+  "2025-10-26",  # Mexico City GP — Autódromo Hermanos Rodríguez :contentReference[oaicite:20]{index=20}
+  "2025-11-09",  # São Paulo GP — Interlagos :contentReference[oaicite:21]{index=21}
+  "2025-11-23",  # Las Vegas GP — Las Vegas :contentReference[oaicite:22]{index=22}
+  "2025-11-30",  # Qatar GP — Lusail :contentReference[oaicite:23]{index=23}
+  "2025-12-07",  # Abu Dhabi GP — Yas Marina :contentReference[oaicite:24]{index=24}
 ]
 
 # FIA documents base URL for 2025 season
