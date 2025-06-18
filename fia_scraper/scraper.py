@@ -222,13 +222,13 @@ def main():
         os.makedirs("jpg_output", exist_ok=True)
         cache = load_cached_hashes()
         new_cache = set(cache)
-
+      
         for url in pdf_links:
             h = hash_url(url)
-          if h in cache:
-              print(f"⏩ Skipping cached document: {url}")
-              new_cache.add(h)
-              continue
+            if h in cache:
+                print(f"⏩ Skipping cached document: {url}")
+                new_cache.add(h)
+                continue
             
             try:
                 print(f"⬇️ Downloading and processing: {url}")
