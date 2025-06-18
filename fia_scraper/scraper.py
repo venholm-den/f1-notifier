@@ -225,10 +225,11 @@ def main():
 
         for url in pdf_links:
             h = hash_url(url)
-            if h in cache:
-                print(f"⏩ Skipping cached document: {url}")
-                continue
-
+          if h in cache:
+              print(f"⏩ Skipping cached document: {url}")
+              new_cache.add(h)
+              continue
+            
             try:
                 print(f"⬇️ Downloading and processing: {url}")
                 pdf_path = download_pdf(url, "fia_docs")
