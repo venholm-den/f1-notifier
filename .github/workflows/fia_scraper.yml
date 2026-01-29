@@ -54,8 +54,9 @@ jobs:
         run: |
           xvfb-run --auto-servernum python fia_scraper/scraper.py ${{ inputs.force == 'true' && '--force' || '' }}
 
-      - name: 💾 Save updated cache (only if not restored)
-        if: steps.cache-restore.outputs.cache-hit != 'true'
+      - name: 💾 Save updated cache
+        # Always save with a unique key so newly seen docs persist.
+        # (cache-hit is only true for an exact key match; restores via restore-keys still need saving.)
         uses: actions/cache/save@v4
         with:
           path: last_fia_doc_hash.txt

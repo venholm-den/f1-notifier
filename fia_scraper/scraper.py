@@ -222,7 +222,17 @@ def main():
         os.makedirs("jpg_output", exist_ok=True)
         cache = load_cached_hashes()
         new_cache = set(cache)
-      
+
+        # First-run safety: if the cache is empty, do NOT post everything.
+        # Instead, initialize the cache with the current set and exit.
+        # Use --force if you intentionally want to post everything.
+        if not cache and not force:
+            print(f"🧯 Cache is empty. Initializing cache with {len(pdf_links)} existing docs (no posts).")
+            for url in pdf_links:
+                new_cache.add(hash_url(url))
+            save_cached_hashes(new_cache)
+            return
+
         for url in pdf_links:
             h = hash_url(url)
             if h in cache:
