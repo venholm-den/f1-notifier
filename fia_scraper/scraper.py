@@ -218,6 +218,9 @@ def report_error_to_discord(error_msg):
 
 # Main scraping and processing routine
 def main():
+    # Hard safety cap: if the scraper ever thinks there are "too many" new docs,
+    # treat it as a state/caching failure and do not spam Discord.
+    MAX_NEW_DOCS_PER_RUN = int(os.getenv("MAX_NEW_DOCS_PER_RUN", "10"))
     # Check for `--force` flag to override race weekend logic
     force = "--force" in sys.argv
 
@@ -243,6 +246,23 @@ def main():
         # Use --force if you intentionally want to post everything.
         if not cache and not force:
             print(f"🧯 Cache is empty. Initializing cache with {len(pdf_links)} existing docs (no posts).")
+            for url in pdf_links:
+                new_cache.add(hash_url(url))
+            save_cached_hashes(new_cache)
+            print(f"🧾 Cache entries saved: {len(new_cache)}")
+            return
+
+        # Safety cap: if we detect too many "new" docs in one run, assume the cache/state is wrong.
+        unseen = [u for u in pdf_links if hash_url(u) not in cache]
+        if len(unseen) > MAX_NEW_DOCS_PER_RUN:
+            msg = (
+                f"🚨 Safety stop: detected {len(unseen)} new docs (limit {MAX_NEW_DOCS_PER_RUN}). "
+                "This looks like a cache/state failure; refusing to post to avoid spam. "
+                "If this is intentional, raise MAX_NEW_DOCS_PER_RUN or run with a known-good cache."
+            )
+            print(msg)
+            report_error_to_discord(msg)
+            # Still update cache so the next run can recover without spamming.
             for url in pdf_links:
                 new_cache.add(hash_url(url))
             save_cached_hashes(new_cache)

@@ -29,6 +29,8 @@ jobs:
     env:
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       DISCORD_ERROR_WEBHOOK_URL: ${{ secrets.DISCORD_ERROR_WEBHOOK_URL }}
+      # Safety cap: prevents spam if cache/state breaks
+      MAX_NEW_DOCS_PER_RUN: "10"
 
     steps:
       - name: ✅ Checkout repository
