@@ -2,6 +2,7 @@ import time
 import os
 import requests
 import hashlib
+from urllib.parse import urlparse
 import fitz  # PyMuPDF for reading and rendering PDFs
 import discord  # For posting to Discord via webhook
 import re
@@ -94,9 +95,15 @@ def save_cached_hashes(hashes):
     with open(CACHE_FILE, "w") as f:
         f.writelines(h + "\n" for h in sorted(hashes))
 
-# SHA256 hash of the document URL (used for cache comparison)
+# SHA256 hash of the document identifier (used for cache comparison)
+# We canonicalize to the URL path so scheme/host changes (http vs https) don't break caching.
 def hash_url(url):
-    return hashlib.sha256(url.encode()).hexdigest()
+    try:
+        path = urlparse(url).path
+    except Exception:
+        path = url
+    key = path.strip().lower()
+    return hashlib.sha256(key.encode()).hexdigest()
 
 # Download a PDF file to a specified folder
 def download_pdf(url, folder):
@@ -229,6 +236,8 @@ def main():
         cache = load_cached_hashes()
         new_cache = set(cache)
 
+        print(f"🧾 Cache entries loaded: {len(cache)}")
+
         # First-run safety: if the cache is empty, do NOT post everything.
         # Instead, initialize the cache with the current set and exit.
         # Use --force if you intentionally want to post everything.
@@ -237,6 +246,7 @@ def main():
             for url in pdf_links:
                 new_cache.add(hash_url(url))
             save_cached_hashes(new_cache)
+            print(f"🧾 Cache entries saved: {len(new_cache)}")
             return
 
         for url in pdf_links:
@@ -264,6 +274,7 @@ def main():
                 report_error_to_discord(err_msg)
 
         save_cached_hashes(new_cache)
+        print(f"🧾 Cache entries saved: {len(new_cache)}")
 
     except Exception as e:
         report_error_to_discord(f"Top-level failure:\n{e}")
