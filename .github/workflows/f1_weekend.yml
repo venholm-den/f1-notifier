@@ -1,0 +1,54 @@
+name: F1 Weekend
+
+on:
+  schedule:
+    # Check daily; the script decides whether it's a race weekend window.
+    - cron: '0 9 * * *'
+    # Check a bit more often on Fri/Sat/Sun
+    - cron: '0 */6 * * 5'
+    - cron: '0 */6 * * 6'
+    - cron: '0 */6 * * 0'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: schedule | results | standings
+        required: false
+        default: schedule
+      force:
+        description: Force post outside weekend window
+        required: false
+        default: "false"
+
+jobs:
+  post:
+    runs-on: ubuntu-24.04
+    env:
+      DISCORD_F1_WEEKEND_WEBHOOK_URL: ${{ secrets.DISCORD_F1_WEEKEND_WEBHOOK_URL }}
+      F1_WEEKEND_MODE: ${{ inputs.mode || 'schedule' }}
+      F1_WEEKEND_FORCE: ${{ inputs.force || 'false' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restore state
+        uses: actions/cache@v4
+        with:
+          path: f1_weekend_state.json
+          key: f1-weekend-state-${{ github.run_id }}
+          restore-keys: |
+            f1-weekend-state-
+
+      - name: Run poster
+        run: |
+          python -c "from f1_weekend.post import post_weekend_update; import os; post_weekend_update(os.getenv('F1_WEEKEND_MODE','schedule'))"
