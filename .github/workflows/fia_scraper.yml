@@ -52,7 +52,7 @@ jobs:
 
       - name: 🧠 Run FIA scraper
         run: |
-          xvfb-run --auto-servernum python fia_scraper/scraper.py ${{ inputs.force == 'true' && '--force' || '' }}
+          python fia_scraper/scraper.py ${{ inputs.force == 'true' && '--force' || '' }}
 
       - name: 💾 Save updated cache
         # Always save with a unique key so newly seen docs persist.

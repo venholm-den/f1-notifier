@@ -7,8 +7,6 @@ import discord  # For posting to Discord via webhook
 import re
 import sys
 from datetime import datetime, timedelta
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
 from bs4 import BeautifulSoup
 
 # 2025 Formula 1 calendar (official or customized as needed)
@@ -49,32 +47,40 @@ ERROR_WEBHOOK_URL = os.getenv("DISCORD_ERROR_WEBHOOK_URL")
 # Cache file path to store hashes of already-processed documents
 CACHE_FILE = "last_fia_doc_hash.txt"
 
-# Launch headless Firefox to get fully rendered FIA documents page
+# Fetch FIA documents page HTML
+# NOTE: The FIA documents list is server-rendered (PDF links appear in raw HTML),
+# so we avoid Selenium/Firefox for reliability and speed.
 def get_rendered_html():
-    print("🚀 Launching Firefox with Selenium...")
-    options = Options()
-    options.headless = True
-    try:
-        driver = webdriver.Firefox(options=options)
-    except Exception as e:
-        print("❌ Failed to start Firefox via Selenium.")
-        raise e
-    try:
-        print("🌐 Opening FIA 2025 documents page...")
-        driver.get(FIA_DOCS_URL)
-        time.sleep(5)  # Wait for JS to render content
-        return driver.page_source
-    finally:
-        driver.quit()
+    print("🌐 Fetching FIA 2025 documents page...")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    r = requests.get(FIA_DOCS_URL, headers=headers, timeout=30)
+    r.raise_for_status()
+    return r.text
 
 # Extract all PDF links from the rendered HTML
 def extract_pdf_links(html):
     soup = BeautifulSoup(html, "html.parser")
-    return [
-        a["href"] if a["href"].startswith("http") else f"https://www.fia.com{a['href']}"
-        for a in soup.find_all("a", href=True)
-        if a["href"].endswith(".pdf")
-    ]
+    links = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        if not href.lower().endswith(".pdf"):
+            continue
+        if href.startswith("http"):
+            links.append(href)
+        else:
+            links.append(f"https://www.fia.com{href}")
+    # Deduplicate while preserving order
+    seen = set()
+    out = []
+    for u in links:
+        if u in seen:
+            continue
+        seen.add(u)
+        out.append(u)
+    return out
 
 # Load previously seen document hashes from cache file
 def load_cached_hashes():
