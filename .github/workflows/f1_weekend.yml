@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: schedule | results | standings
+        description: auto | schedule | track | weather | countdown | qualifying | sprint | results | standings | recap | delta | h2h | thread
         required: false
-        default: schedule
+        default: auto
       force:
         description: Force post outside weekend window
         required: false
@@ -24,8 +24,9 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       DISCORD_F1_WEEKEND_WEBHOOK_URL: ${{ secrets.DISCORD_F1_WEEKEND_WEBHOOK_URL }}
-      F1_WEEKEND_MODE: ${{ inputs.mode || 'schedule' }}
-      F1_WEEKEND_FORCE: ${{ inputs.force || 'false' }}
+      # Schedule runs use auto mode; dispatch can override via inputs.
+      F1_WEEKEND_MODE: auto
+      F1_WEEKEND_FORCE: false
 
     steps:
       - name: Checkout
@@ -50,5 +51,8 @@ jobs:
             f1-weekend-state-
 
       - name: Run poster
+        env:
+          F1_WEEKEND_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'auto' }}
+          F1_WEEKEND_FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force || 'false' }}
         run: |
-          python -c "from f1_weekend.post import post_weekend_update; import os; post_weekend_update(os.getenv('F1_WEEKEND_MODE','schedule'))"
+          python -c "from f1_weekend.post import post_weekend_update; import os; post_weekend_update(os.getenv('F1_WEEKEND_MODE','auto'))"
