@@ -15,10 +15,12 @@ on:
         description: "Force run regardless of race weekend"
         required: false
         default: "false"
-  push:
-    paths:
-      - "fia_scraper/**"
-      - ".github/workflows/fia_scraper.yml"
+  # NOTE: push trigger removed to avoid overwriting the cache with an empty/non-updated file.
+  # Use workflow_dispatch for manual tests and schedule for automatic runs.
+  # push:
+  #   paths:
+  #     - "fia_scraper/**"
+  #     - ".github/workflows/fia_scraper.yml"
 
 jobs:
   scrape-and-notify:
