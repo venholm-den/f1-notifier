@@ -364,9 +364,10 @@ def post_weekend_update(mode: str) -> None:
         _post_once(st, f"track:{season}:{round_}", post_track_facts)
         _post_once(st, f"recap:{season}:{round_}", post_recap_last_race)
 
-    # During weekend: countdown (1 per 6h bucket)
-    bucket = int(now.timestamp() // (6 * 3600))
-    _post_once(st, f"countdown:{season}:{round_}:{bucket}", post_countdown)
+    # Countdown: only post on the Monday of the race weekend window (UTC).
+    # (This keeps it low-noise while still providing a heads-up at the start of the week.)
+    if weekday == 0:
+        _post_once(st, f"countdown:{season}:{round_}", post_countdown)
 
     # Saturday: qualifying + sprint if available
     if weekday == 5:
