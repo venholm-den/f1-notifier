@@ -50,6 +50,13 @@ jobs:
           key: fia-doc-cache-v2
           restore-keys: fia-doc-cache-v2
 
+      - name: 🔍 Debug cache file (safe)
+        run: |
+          echo "cache-hit=${{ steps.cache-restore.outputs.cache-hit }}"
+          ls -la last_fia_doc_hash.txt || true
+          wc -l last_fia_doc_hash.txt || true
+          sha256sum last_fia_doc_hash.txt || true
+
       - name: 🧠 Run FIA scraper
         run: |
           python fia_scraper/scraper.py ${{ inputs.force == 'true' && '--force' || '' }}
