@@ -1,124 +1,63 @@
-# 🏎️ FIA F1 Document Scraper
+# f1-notifier
 
-This project automatically scrapes official FIA PDF documents for each Formula 1 Grand Prix (summons, decisions, classifications, etc.) and posts them to a Discord channel as image previews.
+Two small automations that post into Discord via webhooks:
 
----
+1) **FIA Documents** → downloads FIA decision PDFs, renders pages as images, posts to `#fia-documents`.
+2) **F1 Weekend** → posts race-weekend cards (schedule/track/weather/countdown/quali/sprint/results/standings, etc.) to `#f1-weekend`.
 
-## 📆 Features
+Everything runs on **GitHub Actions**.
 
-- Scrapes PDFs from the [FIA 2025 F1 Documents page](https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071)
-- Extracts metadata (Doc #, title, driver, reason, event, date, time)
-- Converts PDF pages to JPEGs and posts to Discord via webhook
-- Caches previously posted documents to avoid duplicates
-- Runs automatically on GitHub Actions:
-  - **Every 5 minutes** on race weekends
-  - **Once per day** on non-race days
-- Error alerts are sent to a separate Discord channel
+## Requirements
 
----
+Python deps (shared for both workflows):
+- `requests`
+- `beautifulsoup4`
+- `PyMuPDF`
+- `Pillow` (for simple PNG “cards”)
 
-## 🧰 Setup
-
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/YOUR_USERNAME/f1-notifier.git
-cd f1-notifier
-```
-
-### 2. Install Python dependencies
-
+Install:
 ```bash
 pip install -r requirements.txt
 ```
 
-Required packages:
-- `discord.py`
-- `requests`
-- `beautifulsoup4`
-- `PyMuPDF`
-- `selenium`
+## Secrets (GitHub → Settings → Secrets and variables → Actions)
 
-### 3. Environment variables
+### FIA scraper
+- `DISCORD_WEBHOOK_URL` — destination channel webhook (e.g. `#fia-documents`)
+- `DISCORD_ERROR_WEBHOOK_URL` — error/alert webhook (e.g. `#incidents`)
 
-Create a `.env` file or export these in your shell or CI:
+### F1 weekend autoposter
+- `DISCORD_F1_WEEKEND_WEBHOOK_URL` — destination channel webhook (e.g. `#f1-weekend`)
 
-```env
-DISCORD_WEBHOOK_URL=your_discord_webhook
-DISCORD_ERROR_WEBHOOK_URL=your_error_channel_webhook
-```
+## Workflows
 
----
+### 1) FIA scraper
+Workflow: `.github/workflows/fia_scraper.yml`
 
-## ⚙️ GitHub Actions
+Notes:
+- Uses a local cache file (`last_fia_doc_hash.txt`) + GitHub Actions cache to avoid duplicates.
+- Has a safety cap (`MAX_NEW_DOCS_PER_RUN`, default 10) to prevent spam if cache/state breaks.
 
-The workflow is defined in `.github/workflows/fia_scraper.yml`.
-
-It runs:
-
-- **Every 5 minutes**: `cron: '*/5 * * * *'`
-- The Python script will skip if it's not a race weekend (±2 days of a listed race date)
-- Race weekends are hardcoded in the script (`RACE_DATES_2025`)
-
-You can also run the workflow manually from the GitHub UI.
-
----
-
-## 📁 Project Structure
-
-```text
-fia_scraper/
-├── scraper.py              # Main scraper logic
-├── last_fia_doc_hash.txt   # Cache of previously seen documents
-.github/
-└── workflows/
-    └── fia_scraper.yml     # GitHub Actions CI runner
-```
-
----
-
-## 🛠️ Developer Notes
-
-- Uses headless Firefox with Selenium to render JavaScript-based PDF links
-- Converts PDFs to 150 DPI JPEGs with PyMuPDF for Discord image display
-- Supports up to 10 images per Discord message (splits longer PDFs)
-- Automatically formats and posts detailed messages with doc metadata
-
----
-
-## 🧪 Manual Run (Local)
-
-To run manually on your machine:
-
+Manual run:
 ```bash
-python fia_scraper/scraper.py
+python fia_scraper/scraper.py --force
 ```
 
----
+### 2) F1 weekend autoposter
+Workflow: `.github/workflows/f1_weekend.yml`
 
-## 📅 Updating the Calendar
+Notes:
+- Scheduled runs execute in `auto` mode and **only post during race weekends** (Thu→Mon window around the next race, UTC).
+- Posts are de-duped with `f1_weekend_state.json` (cached in Actions).
 
-Race weekends are hardcoded in `RACE_DATES_2025` inside `scraper.py`. Update as the official calendar changes.
-
-```python
-RACE_DATES_2025 = [
-    "2025-03-16",  # Australia
-    ...
-]
+Local manual test:
+```bash
+F1_WEEKEND_FORCE=true F1_WEEKEND_MODE=schedule python -c "from f1_weekend.post import post_weekend_update; post_weekend_update('schedule')"
 ```
 
----
+## Housekeeping
 
-## 🧼 To Do
+- No Selenium/Firefox: FIA page contains PDF links in raw HTML.
+- No `discord.py`: all posting is done via Discord webhooks with `requests`.
 
-- Auto-cleanup old JPEGs or archive them
-- Optional: store metadata in JSON or DB
-- Optional: Add retry/backoff for flaky PDF downloads
-- Optional: Support for other FIA championships (F2, F3)
-
----
-
-## 📬 Contact
-
-Built by [@Kyle](https://github.com/venholm-den).  
-Have suggestions or issues? Open an issue or PR!
+Built by @venholm-den.

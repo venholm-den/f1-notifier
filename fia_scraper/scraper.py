@@ -4,11 +4,12 @@ import requests
 import hashlib
 from urllib.parse import urlparse
 import fitz  # PyMuPDF for reading and rendering PDFs
-import discord  # For posting to Discord via webhook
+# Post to Discord via webhook (no bot token required)
 import re
 import sys
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
+import json
 
 # 2025 Formula 1 calendar (official or customized as needed)
 RACE_DATES_2025 = [
@@ -166,6 +167,29 @@ def convert_pdf_to_images(pdf_path, image_folder, base_name=None):
         image_paths.append(img_path)
     return image_paths
 
+def _send_webhook_files(webhook_url: str, content: str | None, file_paths: list[str]):
+    # Discord webhooks accept multipart with files[0], files[1], ...
+    files = {}
+    opened = []
+    try:
+        for idx, p in enumerate(file_paths):
+            f = open(p, "rb")
+            opened.append(f)
+            files[f"files[{idx}]"] = (p.split("/")[-1], f, "image/jpeg")
+
+        data = {
+            "payload_json": json.dumps({"content": content or ""}),
+        }
+        r = requests.post(webhook_url, data=data, files=files, timeout=60)
+        r.raise_for_status()
+    finally:
+        for f in opened:
+            try:
+                f.close()
+            except Exception:
+                pass
+
+
 # Format and post metadata + images to Discord via webhook
 def post_images_to_discord(image_paths, metadata):
     doc_num = metadata.get("doc_num", "Unknown")
@@ -191,10 +215,9 @@ def post_images_to_discord(image_paths, metadata):
     if reason:
         content += f"\n_{reason}_"
 
-    webhook = discord.SyncWebhook.from_url(WEBHOOK_URL)
     for i in range(0, len(image_paths), 10):
-        files = [discord.File(img) for img in image_paths[i:i+10]]
-        webhook.send(content=content if i == 0 else None, files=files)
+        chunk = image_paths[i:i+10]
+        _send_webhook_files(WEBHOOK_URL, content if i == 0 else None, chunk)
 
 # Check if today is within ±2 days of a race date
 def is_race_weekend():
