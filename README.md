@@ -36,7 +36,7 @@ Workflow: `.github/workflows/fia_scraper.yml`
 
 Notes:
 - Uses a local cache file (`last_fia_doc_hash.txt`) + GitHub Actions cache to avoid duplicates.
-- Has a safety cap (`MAX_NEW_DOCS_PER_RUN`, default 10) to prevent spam if cache/state breaks.
+- **Anti-spam safety cap:** if the scraper detects more than `MAX_NEW_DOCS_PER_RUN` “new” docs (default **10**) in a single run, it **refuses to post** (and alerts via `DISCORD_ERROR_WEBHOOK_URL`) to avoid flooding Discord. You can raise/lower the cap by setting `MAX_NEW_DOCS_PER_RUN` in the workflow env.
 
 Manual run:
 ```bash
