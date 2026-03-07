@@ -11,36 +11,36 @@ from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 import json
 
-# 2025 Formula 1 calendar (official or customized as needed)
-RACE_DATES_2025 = [
-  "2025-03-16",  # Australian GP — Melbourne :contentReference[oaicite:1]{index=1}
-  "2025-03-23",  # Chinese GP — Shanghai :contentReference[oaicite:2]{index=2}
-  "2025-04-06",  # Japanese GP — Suzuka :contentReference[oaicite:3]{index=3}
-  "2025-04-13",  # Bahrain GP — Sakhir :contentReference[oaicite:4]{index=4}
-  "2025-04-20",  # Saudi Arabian GP — Jeddah :contentReference[oaicite:5]{index=5}
-  "2025-05-04",  # Miami GP — Miami :contentReference[oaicite:6]{index=6}
-  "2025-05-18",  # Emilia-Romagna GP — Imola :contentReference[oaicite:7]{index=7}
-  "2025-05-25",  # Monaco GP — Monaco :contentReference[oaicite:8]{index=8}
-  "2025-06-01",  # Spanish GP — Barcelona :contentReference[oaicite:9]{index=9}
-  "2025-06-15",  # Canadian GP — Montreal :contentReference[oaicite:10]{index=10}
-  "2025-06-29",  # Austrian GP — Spielberg :contentReference[oaicite:11]{index=11}
-  "2025-07-06",  # British GP — Silverstone :contentReference[oaicite:12]{index=12}
-  "2025-07-27",  # Belgian GP — Spa :contentReference[oaicite:13]{index=13}
-  "2025-08-03",  # Hungarian GP — Budapest :contentReference[oaicite:14]{index=14}
-  "2025-08-31",  # Dutch GP — Zandvoort :contentReference[oaicite:15]{index=15}
-  "2025-09-07",  # Italian GP — Monza :contentReference[oaicite:16]{index=16}
-  "2025-09-21",  # Azerbaijan GP — Baku :contentReference[oaicite:17]{index=17}
-  "2025-10-05",  # Singapore GP — Singapore :contentReference[oaicite:18]{index=18}
-  "2025-10-19",  # United States GP — Austin :contentReference[oaicite:19]{index=19}
-  "2025-10-26",  # Mexico City GP — Autódromo Hermanos Rodríguez :contentReference[oaicite:20]{index=20}
-  "2025-11-09",  # São Paulo GP — Interlagos :contentReference[oaicite:21]{index=21}
-  "2025-11-23",  # Las Vegas GP — Las Vegas :contentReference[oaicite:22]{index=22}
-  "2025-11-30",  # Qatar GP — Lusail :contentReference[oaicite:23]{index=23}
-  "2025-12-07",  # Abu Dhabi GP — Yas Marina :contentReference[oaicite:24]{index=24}
+# Formula 1 calendar
+RACE_DATES = [
+    "2026-03-08",  # Australian GP — Melbourne
+    "2026-03-15",  # Chinese GP — Shanghai
+    "2026-03-29",  # Japanese GP — Suzuka
+    "2026-04-12",  # Bahrain GP — Sakhir
+    "2026-04-19",  # Saudi Arabian GP — Jeddah
+    "2026-05-03",  # Miami GP — Miami
+    "2026-05-24",  # Canadian GP — Montreal
+    "2026-06-07",  # Monaco GP — Monaco
+    "2026-06-14",  # Spanish GP — Barcelona-Catalunya
+    "2026-06-28",  # Austrian GP — Spielberg
+    "2026-07-05",  # British GP — Silverstone
+    "2026-07-19",  # Belgian GP — Spa
+    "2026-07-26",  # Hungarian GP — Budapest
+    "2026-08-23",  # Dutch GP — Zandvoort
+    "2026-09-06",  # Italian GP — Monza
+    "2026-09-13",  # Spanish GP — Madrid
+    "2026-09-26",  # Azerbaijan GP — Baku
+    "2026-10-11",  # Singapore GP — Singapore
+    "2026-10-25",  # United States GP — Austin
+    "2026-11-01",  # Mexico City GP — Mexico City
+    "2026-11-08",  # São Paulo GP — Interlagos
+    "2026-11-21",  # Las Vegas GP — Las Vegas
+    "2026-11-29",  # Qatar GP — Lusail
+    "2026-12-06",  # Abu Dhabi GP — Yas Marina
 ]
 
-# FIA documents base URL for 2025 season
-FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2025-2071"
+# FIA documents base URL for 2026 season
+FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2026-2072"
 
 # Discord webhook environment variables
 WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
@@ -53,7 +53,7 @@ CACHE_FILE = "last_fia_doc_hash.txt"
 # NOTE: The FIA documents list is server-rendered (PDF links appear in raw HTML),
 # so we avoid Selenium/Firefox for reliability and speed.
 def get_rendered_html():
-    print("🌐 Fetching FIA 2025 documents page...")
+    print("🌐 Fetching FIA 2026 documents page...")
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -222,7 +222,7 @@ def post_images_to_discord(image_paths, metadata):
 # Check if today is within ±2 days of a race date
 def is_race_weekend():
     today = datetime.utcnow().date()
-    race_dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in RACE_DATES_2025]
+    race_dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in RACE_DATES]
     for race_day in race_dates:
         if abs((race_day - today).days) <= 2:
             return True
