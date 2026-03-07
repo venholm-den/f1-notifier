@@ -13,6 +13,7 @@ import json
 
 # Formula 1 calendar
 RACE_DATES = [
+    "2025-03-16", # Australian GP — Melbourne
     "2026-03-08",  # Australian GP — Melbourne
     "2026-03-15",  # Chinese GP — Shanghai
     "2026-03-29",  # Japanese GP — Suzuka
