@@ -224,8 +224,11 @@ def post_images_to_discord(image_paths, metadata):
 def is_race_weekend():
     today = datetime.utcnow().date()
     race_dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in RACE_DATES]
+
     for race_day in race_dates:
-        if abs((race_day - today).days) <= 2:
+        window_start = race_day - timedelta(days=3)  # Thursday
+        window_end = race_day + timedelta(days=1)    # Monday
+        if window_start <= today <= window_end:
             return True
     return False
 
