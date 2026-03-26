@@ -321,17 +321,6 @@ def post_weekend_update(mode: str) -> None:
         content = f"**Head-to-head**\nWho finishes higher this weekend: **{an}** vs **{bn}**?"
         send_webhook(WEBHOOK, content=content)
 
-    def post_thread_starter():
-        content = (
-            f"**Weekend thread — {race_name}**\n"
-            "Predictions: \n"
-            "• Pole: \n"
-            "• Winner: \n"
-            "• First DNF: \n"
-            "• Surprise of the weekend: \n"
-        )
-        send_webhook(WEBHOOK, content=content)
-
     # Modes
     if mode != "auto":
         key = f"{mode}:{season}:{round_}"
