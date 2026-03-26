@@ -22,6 +22,9 @@ on:
   #     - "fia_scraper/**"
   #     - ".github/workflows/fia_scraper.yml"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   scrape-and-notify:
     runs-on: ubuntu-24.04
@@ -34,10 +37,10 @@ jobs:
 
     steps:
       - name: ✅ Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 🐍 Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
 
@@ -47,7 +50,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: 🔁 Restore cached document hashes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: last_fia_doc_hash.txt
           # Use a unique key per run so caches can be updated.
@@ -60,5 +63,5 @@ jobs:
         run: |
           python fia_scraper/scraper.py ${{ inputs.force == 'true' && '--force' || '' }}
 
-      # No explicit save step needed: actions/cache@v4 saves automatically when the key is unique
+      # No explicit save step needed: actions/cache@v5 saves automatically when the key is unique
       # and the cache wasn't an exact-hit for that key.
