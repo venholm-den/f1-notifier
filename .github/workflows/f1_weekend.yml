@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: auto | schedule | track | weather | countdown | qualifying | sprint | results | standings | recap | delta | h2h | thread
+        description: auto | schedule | track | weather | countdown | qualifying | sprint | results | standings | recap | delta | h2h
         required: false
         default: auto
       force:
