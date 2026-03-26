@@ -336,7 +336,6 @@ def post_weekend_update(mode: str) -> None:
             "recap": post_recap_last_race,
             "delta": post_champ_delta,
             "h2h": post_head_to_head,
-            "thread": post_thread_starter,
         }
         if mode not in actions:
             raise ValueError("Unknown mode")
@@ -344,11 +343,10 @@ def post_weekend_update(mode: str) -> None:
         return
 
     # AUTO: post a bundle across the weekend, de-duped.
-    # Thursday/Friday: thread + schedule + track + recap
+    # Thursday/Friday: schedule + track + recap
     weekday = now.weekday()  # Mon=0
 
     if weekday in (3, 4):
-        _post_once(st, f"thread:{season}:{round_}", post_thread_starter)
         _post_once(st, f"schedule:{season}:{round_}", post_schedule)
         _post_once(st, f"track:{season}:{round_}", post_track_facts)
         _post_once(st, f"recap:{season}:{round_}", post_recap_last_race)
