@@ -59,16 +59,10 @@ jobs:
           restore-keys: |
             fia-doc-cache-v2-
 
-      - name: 🧪 Remove some cached hashes for testing
+      - name: 🧪 Remove 2 most recent docs from cache
         run: |
-          echo "=== CURRENT CACHE ==="
-          cat last_fia_doc_hash.txt
-
-          # Remove the first 2 hashes (example)
-          sed -i '1,2d' last_fia_doc_hash.txt
-
-          echo "=== UPDATED CACHE ==="
-          cat last_fia_doc_hash.txt
+          head -n -2 last_fia_doc_hash.txt > temp.txt
+          mv temp.txt last_fia_doc_hash.txt
 
       - name: 🧠 Run FIA scraper
         run: |
