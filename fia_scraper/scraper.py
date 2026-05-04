@@ -122,7 +122,7 @@ def load_cached_hashes():
 # Save updated list of hashes to cache file
 def save_cached_hashes(hashes):
     with open(CACHE_FILE, "w") as f:
-        f.writelines(h + "\n" for h in sorted(hashes))
+        f.writelines(h + "\n" for h in hashes)
 
 # SHA256 hash of the document identifier (used for cache comparison)
 # We canonicalize to the URL path so scheme/host changes (http vs https) don't break caching.
