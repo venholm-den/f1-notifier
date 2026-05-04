@@ -20,8 +20,8 @@ def _utc_dt(date_str: str, time_str: str | None) -> datetime:
 
 
 def _within_window(now: datetime, race_dt: datetime) -> bool:
-    # Weekend window: Thu..Mon around race (UTC)
-    return (race_dt - timedelta(days=4)) <= now <= (race_dt + timedelta(days=1))
+    # Weekend build-up window: Monday through Monday around race week UTC
+    return (race_dt - timedelta(days=6)) <= now <= (race_dt + timedelta(days=1))
 
 
 def _driver_name(drv: dict) -> str:
