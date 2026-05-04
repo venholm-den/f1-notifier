@@ -8,6 +8,7 @@ import fitz  # PyMuPDF for reading and rendering PDFs
 import re
 import sys
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from bs4 import BeautifulSoup
 import json
 
@@ -39,6 +40,32 @@ RACE_DATES = [
     "2026-11-29",  # Qatar GP — Lusail
     "2026-12-06",  # Abu Dhabi GP — Yas Marina
 ]
+
+GP_TIMEZONES = {
+    "Australian": "Australia/Melbourne",
+    "Chinese": "Asia/Shanghai",
+    "Japanese": "Asia/Tokyo",
+    "Bahrain": "Asia/Bahrain",
+    "Saudi": "Asia/Riyadh",
+    "Miami": "America/New_York",
+    "Canadian": "America/Toronto",
+    "Monaco": "Europe/Monaco",
+    "Spanish": "Europe/Madrid",
+    "Austrian": "Europe/Vienna",
+    "British": "Europe/London",
+    "Belgian": "Europe/Brussels",
+    "Hungarian": "Europe/Budapest",
+    "Dutch": "Europe/Amsterdam",
+    "Italian": "Europe/Rome",
+    "Azerbaijan": "Asia/Baku",
+    "Singapore": "Asia/Singapore",
+    "United States": "America/Chicago",
+    "Mexico": "America/Mexico_City",
+    "São Paulo": "America/Sao_Paulo",
+    "Las Vegas": "America/Los_Angeles",
+    "Qatar": "Asia/Qatar",
+    "Abu Dhabi": "Asia/Dubai",
+}
 
 # FIA documents base URL for 2026 season
 FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2026-2072"
@@ -190,6 +217,33 @@ def _send_webhook_files(webhook_url: str, content: str | None, file_paths: list[
             except Exception:
                 pass
 
+def convert_to_gmt(event, date_str, time_str):
+    try:
+        if not date_str or not time_str:
+            return None
+
+        gp_timezone = None
+
+        for gp_name, tz in GP_TIMEZONES.items():
+            if gp_name.lower() in event.lower():
+                gp_timezone = tz
+                break
+
+        if not gp_timezone:
+            return None
+
+        local_dt = datetime.strptime(
+            f"{date_str} {time_str}",
+            "%d %B %Y %H:%M"
+        )
+        
+        local_dt = local_dt.replace(tzinfo=ZoneInfo(gp_timezone))
+        utc_dt = local_dt.astimezone(ZoneInfo("UTC"))
+        return utc_dt.strftime("%H:%M GMT")
+        
+    except Exception as e:
+        print(f"⚠️ Failed GMT conversion: {e}")
+        return None
 
 # Format and post metadata + images to Discord via webhook
 def post_images_to_discord(image_paths, metadata):
@@ -207,8 +261,17 @@ def post_images_to_discord(image_paths, metadata):
     bold_line += "**"
 
     plain_line = ""
+    time_display = f"{time_str} GMT" if time_str else ""
     if event != "Event Unknown" and event.strip():
-        plain_line = f"{event} — {date} — {time_str}".strip(" —")
+        
+    gmt_time = convert_to_gmt(event, date, time_str)
+    
+    if gmt_time:
+        time_display = f"{time_str} Local / {gmt_time}"
+    else:
+        time_display = f"{time_str} Local"
+    
+    plain_line = f"{event} — {date} — {time_display}".strip(" —")
 
     content = bold_line
     if plain_line:
