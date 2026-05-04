@@ -296,7 +296,7 @@ def main():
             print(f"🧾 Cache entries saved: {len(new_cache)}")
             return
 
-        for url in pdf_links:
+        for url in reversed(pdf_links):
             h = hash_url(url)
             if h in cache:
                 print(f"⏩ Skipping cached document: {url}")
