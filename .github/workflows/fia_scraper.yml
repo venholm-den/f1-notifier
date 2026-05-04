@@ -63,5 +63,12 @@ jobs:
         run: |
           python fia_scraper/scraper.py ${{ inputs.force == 'true' && '--force' || '' }}
 
+      - name: 💾 Save updated document hash cache
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: last_fia_doc_hash.txt
+          key: fia-doc-cache-v2-${{ github.run_id }}
+
       # No explicit save step needed: actions/cache@v5 saves automatically when the key is unique
       # and the cache wasn't an exact-hit for that key.
