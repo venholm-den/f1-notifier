@@ -228,40 +228,59 @@ def post_weekend_update(mode: str) -> None:
         except Exception:
             print("No circuit lat/long available; skipping weather")
             return
+    
         data = get_hourly_forecast(lat, lon)
         hourly = data.get("hourly") or {}
+    
         times = hourly.get("time") or []
         temps = hourly.get("temperature_2m") or []
         pops = hourly.get("precipitation_probability") or []
         winds = hourly.get("wind_speed_10m") or []
-
+        dew_points = hourly.get("dew_point_2m") or []
+        visibility = hourly.get("visibility") or []
+        humidity = hourly.get("relative_humidity_2m") or []
+    
         # Find forecast hour closest to race start
         target = race_dt.replace(minute=0, second=0, microsecond=0)
         idx = None
-        for i, t in enumerate(times):
-            if t.startswith(target.strftime("%Y-%m-%dT%H")):
+    
+        for i, tstamp in enumerate(times):
+            if tstamp.startswith(target.strftime("%Y-%m-%dT%H")):
                 idx = i
                 break
+    
         if idx is None:
             print("No matching forecast hour for race start; skipping weather")
             return
-
+    
         t = temps[idx] if idx < len(temps) else None
         p = pops[idx] if idx < len(pops) else None
         w = winds[idx] if idx < len(winds) else None
+        d = dew_points[idx] if idx < len(dew_points) else None
+        v = visibility[idx] if idx < len(visibility) else None
+        h = humidity[idx] if idx < len(humidity) else None
+    
+        visibility_km = round(v / 1000, 1) if v is not None else None
+    
         lines = [
             f"Race: {race_name}",
             f"Forecast (race hour, UTC): {target.strftime('%a %H:%M')}",
             f"Temp: {t}°C" if t is not None else "Temp: n/a",
+            f"Feels / dew point: {d}°C" if d is not None else "Feels / dew point: n/a",
+            f"Humidity: {h}%" if h is not None else "Humidity: n/a",
             f"Rain chance: {p}%" if p is not None else "Rain chance: n/a",
             f"Wind: {w} km/h" if w is not None else "Wind: n/a",
+            f"Visibility: {visibility_km} km" if visibility_km is not None else "Visibility: n/a",
         ]
+    
         content = f"**Weather snapshot — {race_name}** (best effort)"
+    
         img = render_weekend_card(
             title=f"Weather: {race_name}",
             lines=lines,
             footer="Source: Open-Meteo (UTC) · best effort",
         )
+    
         send_webhook(WEBHOOK, content=content, file_bytes=img, filename="weather.png")
 
     def post_recap_last_race():
