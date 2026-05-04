@@ -138,10 +138,19 @@ def hash_url(url):
 def download_pdf(url, folder):
     filename = url.split("/")[-1]
     path = os.path.join(folder, filename)
-    r = requests.get(url)
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+        "Accept": "application/pdf,*/*",
+        "Referer": FIA_DOCS_URL,
+    }
+
+    r = requests.get(url, headers=headers, timeout=30)
     r.raise_for_status()
+
     with open(path, "wb") as f:
         f.write(r.content)
+
     return path
 
 # Extract structured metadata from the first page of a PDF document
