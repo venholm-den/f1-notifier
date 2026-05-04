@@ -59,6 +59,17 @@ jobs:
           restore-keys: |
             fia-doc-cache-v2-
 
+      - name: 🧪 Remove some cached hashes for testing
+        run: |
+          echo "=== CURRENT CACHE ==="
+          cat last_fia_doc_hash.txt
+
+          # Remove the first 2 hashes (example)
+          sed -i '1,2d' last_fia_doc_hash.txt
+
+          echo "=== UPDATED CACHE ==="
+          cat last_fia_doc_hash.txt
+
       - name: 🧠 Run FIA scraper
         run: |
           python fia_scraper/scraper.py ${{ inputs.force == 'true' && '--force' || '' }}
