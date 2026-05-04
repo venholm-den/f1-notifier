@@ -59,53 +59,6 @@ jobs:
           restore-keys: |
             fia-doc-cache-v2-
 
-      - name: 🧪 Remove 2 latest Miami docs from cache
-        run: |
-          python - <<'PY'
-          import hashlib
-          import requests
-          from bs4 import BeautifulSoup
-          from urllib.parse import urlparse
-
-          FIA_DOCS_URL = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2026-2072"
-          CACHE_FILE = "last_fia_doc_hash.txt"
-
-          def hash_url(url):
-              path = urlparse(url).path
-              key = path.strip().lower()
-              return hashlib.sha256(key.encode()).hexdigest()
-
-          html = requests.get(FIA_DOCS_URL, timeout=30).text
-          soup = BeautifulSoup(html, "html.parser")
-
-          pdfs = []
-          for a in soup.find_all("a", href=True):
-              href = a["href"].strip()
-              if href.lower().endswith(".pdf"):
-                  url = href if href.startswith("http") else f"https://www.fia.com{href}"
-                  if "miami" in url.lower():
-                      pdfs.append(url)
-
-          # FIA page is usually newest first, so take first 2 Miami docs
-          target_urls = pdfs[:2]
-          target_hashes = {hash_url(u) for u in target_urls}
-
-          print("Removing these Miami docs from cache:")
-          for u in target_urls:
-              print("-", u)
-
-          with open(CACHE_FILE, "r") as f:
-              lines = [line.strip() for line in f if line.strip()]
-
-          updated = [h for h in lines if h not in target_hashes]
-
-          with open(CACHE_FILE, "w") as f:
-              for h in updated:
-                  f.write(h + "\n")
-
-          print(f"Removed {len(lines) - len(updated)} cache entries.")
-          PY
-
       - name: 🧠 Run FIA scraper
         run: |
           python fia_scraper/scraper.py ${{ inputs.force == 'true' && '--force' || '' }}
