@@ -263,6 +263,7 @@ def post_images_to_discord(image_paths, metadata):
     plain_line = ""
 
     if event != "Event Unknown" and event.strip():
+        print(f"🕒 Time debug: event='{event}', date='{date}', time='{time_str}'")
         gmt_time = convert_to_gmt(event, date, time_str)
 
         if time_str and gmt_time:
@@ -300,8 +301,11 @@ def is_race_weekend():
 def report_error_to_discord(error_msg):
     if ERROR_WEBHOOK_URL:
         try:
-            webhook = discord.SyncWebhook.from_url(ERROR_WEBHOOK_URL)
-            webhook.send(content=f"❌ FIA Scraper Error:\n```{error_msg}\n```")
+            payload = {
+                "content": f"❌ FIA Scraper Error:\n```\n{error_msg}\n```"
+            }
+            r = requests.post(ERROR_WEBHOOK_URL, json=payload, timeout=30)
+            r.raise_for_status()
         except Exception as e:
             print(f"⚠️ Failed to send error to Discord: {e}")
     else:
