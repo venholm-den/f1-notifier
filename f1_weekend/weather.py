@@ -8,7 +8,7 @@ def get_hourly_forecast(lat: float, lon: float) -> dict:
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
-        "&hourly=temperature_2m,precipitation_probability,wind_speed_10m"
+        "&hourly=temperature_2m,precipitation_probability,wind_speed_10m,dew_point_2m,visibility,relative_humidity_2m"
         "&forecast_days=3"
         "&timezone=UTC"
     )
