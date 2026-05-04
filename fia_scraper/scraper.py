@@ -261,17 +261,18 @@ def post_images_to_discord(image_paths, metadata):
     bold_line += "**"
 
     plain_line = ""
-    time_display = f"{time_str} GMT" if time_str else ""
+
     if event != "Event Unknown" and event.strip():
-        
-    gmt_time = convert_to_gmt(event, date, time_str)
-    
-    if gmt_time:
-        time_display = f"{time_str} Local / {gmt_time}"
-    else:
-        time_display = f"{time_str} Local"
-    
-    plain_line = f"{event} — {date} — {time_display}".strip(" —")
+        gmt_time = convert_to_gmt(event, date, time_str)
+
+        if time_str and gmt_time:
+            time_display = f"{time_str} Local / {gmt_time}"
+        elif time_str:
+            time_display = f"{time_str} Local"
+        else:
+            time_display = ""
+
+        plain_line = f"{event} — {date} — {time_display}".strip(" —")
 
     content = bold_line
     if plain_line:
