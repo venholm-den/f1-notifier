@@ -2,12 +2,23 @@ name: F1 Weekend
 
 on:
   schedule:
-    # Check daily; the script decides whether it's a race weekend window.
-    - cron: '0 9 * * *'
-    # Check a bit more often on Fri/Sat/Sun
+    # Monday countdown check. Your Python only posts countdown on weekday == 0.
+    - cron: '0 9 * * 1'
+
+    # Thursday/Friday: schedule, track card, previous race recap.
+    - cron: '0 9 * * 4'
+    - cron: '0 9 * * 5'
+
+    # Friday/Saturday/Sunday: check more often during the weekend.
     - cron: '0 */6 * * 5'
-    - cron: '0 */6 * * 6'
-    - cron: '0 */6 * * 0'
+    - cron: '0 */3 * * 6'
+    - cron: '0 */2 * * 0'
+
+    # Sunday evening UTC: extra chances for results/standings after the race.
+    - cron: '30 15 * * 0'
+    - cron: '30 18 * * 0'
+    - cron: '30 21 * * 0'
+
   workflow_dispatch:
     inputs:
       mode:
@@ -18,18 +29,25 @@ on:
         description: Force post outside weekend window
         required: false
         default: "false"
+      allow_dupes:
+        description: Allow duplicate posts for this manual run
+        required: false
+        default: "false"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  STATE_FILE: f1_weekend_state.json
+
+concurrency:
+  group: f1-weekend-poster
+  cancel-in-progress: false
 
 jobs:
   post:
     runs-on: ubuntu-24.04
+
     env:
       DISCORD_F1_WEEKEND_WEBHOOK_URL: ${{ secrets.DISCORD_F1_WEEKEND_WEBHOOK_URL }}
-      # Schedule runs use auto mode; dispatch can override via inputs.
-      F1_WEEKEND_MODE: auto
-      F1_WEEKEND_FORCE: false
 
     steps:
       - name: Checkout
@@ -39,23 +57,41 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Restore state
-        uses: actions/cache@v5
+      - name: Restore weekend state
+        id: restore-state
+        uses: actions/cache/restore@v5
         with:
-          path: f1_weekend_state.json
-          key: f1-weekend-state-${{ github.run_id }}
+          path: ${{ env.STATE_FILE }}
+          key: f1-weekend-state-main
           restore-keys: |
             f1-weekend-state-
+
+      - name: Ensure state file exists
+        run: |
+          if [ ! -f "${STATE_FILE}" ]; then
+            echo '{"posted":[]}' > "${STATE_FILE}"
+          fi
+          cat "${STATE_FILE}"
 
       - name: Run poster
         env:
           F1_WEEKEND_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'auto' }}
           F1_WEEKEND_FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force || 'false' }}
+          F1_WEEKEND_ALLOW_DUPES: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_dupes || 'false' }}
         run: |
-          python -c "from f1_weekend.post import post_weekend_update; import os; post_weekend_update(os.getenv('F1_WEEKEND_MODE','auto'))"
+          python -m f1_weekend.post
+
+      - name: Save weekend state
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.STATE_FILE }}
+          key: f1-weekend-state-${{ github.run_id }}
