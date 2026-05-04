@@ -273,7 +273,7 @@ def main():
         # Use --force if you intentionally want to post everything.
         if not cache and not force:
             print(f"🧯 Cache is empty. Initializing cache with {len(pdf_links)} existing docs (no posts).")
-            for url in pdf_links:
+            for url in reversed(pdf_links):
                 new_cache.add(hash_url(url))
             save_cached_hashes(new_cache)
             print(f"🧾 Cache entries saved: {len(new_cache)}")
@@ -290,7 +290,7 @@ def main():
             print(msg)
             report_error_to_discord(msg)
             # Still update cache so the next run can recover without spamming.
-            for url in pdf_links:
+            for url in reversed(pdf_links):
                 new_cache.add(hash_url(url))
             save_cached_hashes(new_cache)
             print(f"🧾 Cache entries saved: {len(new_cache)}")
